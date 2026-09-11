@@ -1,0 +1,23 @@
+# JOCKY sample investigation — exercises every Phase 1 grammar construct:
+# case block, two evidence sources, a rule, and an investigation using
+# where, group_by, having, emit (plus select, sort_by, limit,
+# correlate, write, call, source, let, predicates, and literals).
+case incident_01 {
+  allowed_capabilities: ["netforensics.pcap.read", "timeline.correlate"];
+}
+
+evidence capture: pcap("evidence/capture.pcap");
+evidence authlogs: eventlog("evidence/auth.json");
+
+rule flag_big_flows(min_bytes: int) -> table<flow> {
+  let big = source capture | where bytes > min_bytes and protocol == "tcp" | select src_ip, dst_ip as dest, bytes | sort_by bytes desc | limit 100;
+  big | emit report;
+}
+
+investigate incident_01 {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "evidence/capture.pcap", bpf: "tcp port 443", threshold: 0.75, verbose: true);
+  let auth = source authlogs | where message contains "failed" and not user in ["root", "admin"];
+  let tl = correlate(flows, auth) within 5m on src_ip | group_by src_ip | having events > 3 | select src_ip | sort_by src_ip asc | limit 10;
+  tl | write report("out/incident_report.md");
+  flows | write "out/flows.json";
+}

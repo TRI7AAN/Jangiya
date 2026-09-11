@@ -1,0 +1,165 @@
+code,test_name,category,tool_or_method
+V-001,Sensitive data via OSINT,tool_parsing,theHarvester
+V-002,Sub-domain enumeration,tool_parsing,subfinder
+V-003,Open port/unnecessary service,tool_parsing,rustscan+nmap
+V-004,DNS spoofing,custom_script,dig+spoof_probe
+V-005,Banner grabbing/fingerprinting,tool_parsing,nmap -sV
+V-006,Weak TLS/SSL version,tool_parsing,testssl.sh
+V-007,Weak cipher suite,tool_parsing,testssl.sh
+V-008,Expired/self-signed certificate,tool_parsing,openssl s_client
+V-009,Lack of SSL pinning,pen_req,objection/frida
+V-010,Missing HSTS header,tool_parsing,curl -I
+V-011,MITM exposure,custom_script,bettercap_probe
+V-012,Default credentials,tool_parsing,hydra
+V-013,Weak password policy,custom_script,register_probe
+V-014,Missing MFA/MFA bypass,pen_req,burp_manual
+V-015,Account takeover (ATO),pen_req,chained_flow
+V-016,Credential stuffing exposure,tool_parsing,hydra+breach_list
+V-017,Insecure password reset flow,custom_script,curl+hydra+nuclei
+V-018,Session fixation,custom_script,curl+hydra
+V-019,Weak JWT validation/sig bypass,tool_parsing,jwt_tool
+V-020,OAuth misconfig,pen_req,oauth_flow_review
+V-021,SAML bypass/sig wrapping,tool_parsing,samlraider
+V-022,Broken access control (BAC),pen_req,role_matrix_test
+V-023,IDOR,custom_script,id_enum_diff
+V-024,BOLA,pen_req,api_semantics
+V-025,BFLA,pen_req,api_semantics
+V-026,BOPLA,pen_req,api_semantics
+V-027,Vertical privilege escalation,pen_req,role_manip
+V-028,Horizontal privilege escalation,pen_req,param_tamper
+V-029,SQLi,tool_parsing,sqlmap
+V-030,NoSQLi,tool_parsing,nosqlmap
+V-031,LDAPi,custom_script,ldap_payload_probe
+V-032,XPATHi,custom_script,xpath_payload_probe
+V-033,CMDi/OSCi,tool_parsing,commix
+V-034,Reflected XSS,tool_parsing,xsstrike
+V-035,Stored XSS,tool_parsing,xsstrike
+V-036,DOM-based XSS,tool_parsing,dominator
+V-037,XXE,custom_script,xxe_payload_probe
+V-038,SSTI,tool_parsing,tplmap
+V-039,CSTI,custom_script,csti_payload_probe
+V-040,SSI,custom_script,ssi_payload_probe
+V-041,ESI,custom_script,esi_payload_probe
+V-042,XSLT injection,custom_script,xslt_payload_probe
+V-043,HHI (Host Header Injection),custom_script,host_header_probe
+V-044,HPP,custom_script,dup_param_probe
+V-045,CRLF injection,custom_script,crlf_probe
+V-046,CSRF,custom_script,csrf_poc_probe
+V-047,SSRF,custom_script,ssrf_callback_probe
+V-048,Open redirect,custom_script,redirect_param_probe
+V-049,HRS/desync,tool_parsing,smuggler
+V-050,CORS misconfig,custom_script,origin_header_probe
+V-051,WAF bypass,tool_parsing,wafw00f
+V-052,ReDoS,custom_script,regex_input_probe
+V-053,Business logic flaws,pen_req,workflow_abuse
+V-054,Mass assignment,tool_parsing,arjun
+V-055,Insecure GraphQL,tool_parsing,graphql-cop
+V-056,Insecure session token design,custom_script,curl+python3
+V-057,Hardcoded secrets in src/binary,tool_parsing,trufflehog
+V-058,Sensitive data in logs/errors,custom_script,log_grep_probe
+V-059,Unencrypted data in local storage,tool_parsing,mobsf
+V-060,GPP password exposure,tool_parsing,impacket_gpp
+V-061,DPAPI backup key extraction,tool_parsing,pypykatz
+V-062,LFI,tool_parsing,ffuf
+V-063,RFI,custom_script,rfi_payload_probe
+V-064,Unrestricted file upload,custom_script,upload_bypass_probe
+V-065,Insecure deserialization,tool_parsing,ysoserial
+V-066,PHP object injection,tool_parsing,phpggc
+V-067,Path/directory traversal,tool_parsing,dirsearch
+V-068,RCE,pen_req,exploit_dev
+V-069,LPE,tool_parsing,peass-ng
+V-070,Unpatched OS/missing patches,tool_parsing,openvas
+V-071,Exposed admin interface,tool_parsing,nmap+httpx
+V-072,VM escape,pen_req,hypervisor_exploit
+V-073,Misconfigured file/dir permissions,tool_parsing,linpeas
+V-074,Insecure cron/scheduled task,tool_parsing,linpeas
+V-075,Stack buffer overflow,pen_req,pwntools_craft
+V-076,Heap overflow,pen_req,pwntools_craft
+V-077,Use-after-free,tool_parsing,kasan+syzkaller
+V-078,Double free,tool_parsing,kasan+syzkaller
+V-079,OOB read,tool_parsing,kasan+syzkaller
+V-080,OOB write,tool_parsing,kasan+syzkaller
+V-081,Null pointer dereference,tool_parsing,syzkaller
+V-082,Memory leak,tool_parsing,valgrind
+V-083,Format string vuln,tool_parsing,flawfinder
+V-084,Race condition,tool_parsing,kcsan
+V-085,TOCTOU,pen_req,symlink_race_manual
+V-086,ROP exposure,tool_parsing,checksec
+V-087,Vulnerable dependencies/SCA,tool_parsing,grype+syft
+V-088,Missing/incomplete SBOM,tool_parsing,syft
+V-089,ARP spoofing,tool_parsing,bettercap
+V-090,LLMNR poisoning,tool_parsing,responder
+V-091,NBT-NS poisoning,tool_parsing,responder
+V-092,WPAD spoofing,tool_parsing,responder
+V-093,SMB relay,tool_parsing,netexec+ntlmrelayx
+V-094,Kerberoasting,tool_parsing,impacket_GetUserSPNs
+V-095,AS-REP roasting,tool_parsing,impacket_GetNPUsers
+V-096,Pass-the-Hash,tool_parsing,netexec
+V-097,Pass-the-Ticket,tool_parsing,impacket
+V-098,Pass-the-Key,tool_parsing,pypykatz
+V-099,DCSync,tool_parsing,impacket_secretsdump
+V-100,DCShadow,pen_req,mimikatz_rogue_dc
+V-101,PAC tampering/silver ticket,tool_parsing,impacket_ticketer
+V-102,Golden ticket forgery,tool_parsing,impacket_ticketer
+V-103,ADCS abuse,tool_parsing,certipy
+V-104,VLAN hopping,tool_parsing,yersinia
+V-105,Flat network/no segmentation,custom_script,segmentation_probe
+V-106,Public cloud storage exposure,tool_parsing,cloud_enum
+V-107,IAM/policy misconfig,tool_parsing,scoutsuite
+V-108,Security group misconfig,tool_parsing,scoutsuite
+V-109,IMDS abuse,custom_script,imds_curl_probe
+V-110,CSPM flaw,tool_parsing,prowler
+V-111,D-PPE,pen_req,cloud_manual
+V-112,I-PPE,pen_req,cloud_manual
+V-113,Build secret exposure,tool_parsing,trufflehog_cicd
+V-114,Artifact/dependency poisoning,tool_parsing,cosign+syft
+V-115,DLL hijacking,pen_req,process_monitor_manual
+V-116,UAC bypass,pen_req,bypass_technique_manual
+V-117,AML/EDR bypass,pen_req,evasion_manual
+V-118,JDWP exposure,tool_parsing,nmap_jdwp
+V-119,Insecure IPC/exported component,tool_parsing,drozer
+V-120,Deep link hijacking,pen_req,intent_manual
+V-121,Frida bypass/anti-Frida,pen_req,frida_manual
+V-122,Insecure local storage in client app,tool_parsing,objection
+V-123,Lack of obfuscation/anti-tamper,tool_parsing,jadx+apktool
+V-124,DoS,pen_req,load_crash_manual
+V-125,DDoS,pen_req,distributed_load_manual
+V-126,ReDoS/algorithmic complexity DoS,custom_script,crafted_input_probe
+V-127,Missing rate limiting/brute force,tool_parsing,hydra+intruder
+V-128,Prompt injection,tool_parsing,garak
+V-129,LLM jailbreak,tool_parsing,garak
+V-130,Sensitive data exposure via model output,tool_parsing,garak
+V-131,Data/training poisoning,pen_req,poisoning_manual
+V-132,Coverage-guided fuzzing,tool_parsing,syzkaller
+V-133,Structure-aware syscall fuzzing,tool_parsing,syzkaller
+V-134,Driver-targeted fuzzing,tool_parsing,difuze
+V-135,KASAN crash triage,tool_parsing,kasan
+V-136,UBSAN detection,tool_parsing,ubsan
+V-137,Concurrency/data-race detection,tool_parsing,kcsan+lockdep
+V-138,Property-based testing,pen_req,harness_design_manual
+V-139,Runtime Verification,tool_parsing,rv_framework
+V-140,LKMM formal analysis,tool_parsing,lkmm
+V-141,eBPF verifier soundness,tool_parsing,agni
+V-142,Buffer overflow brute-force,tool_parsing,bfbtester
+V-143,Static source auditing,tool_parsing,flawfinder+cppcheck
+V-144,Kernel hardening config audit,tool_parsing,kernel-hardening-checker
+V-145,NX/Exec-shield verification,tool_parsing,checksec+paxtest
+V-146,PaX/grsecurity bypass testing,tool_parsing,paxtest
+V-147,KASLR bypass/info-leak,pen_req,side_channel_manual
+V-148,SMEP/SMAP bypass,pen_req,exploit_primitive_manual
+V-149,Module/driver loading abuse,custom_script,insmod_modprobe_probe
+V-150,Netlink/socket kernel interface abuse,pen_req,netlink_fuzz_manual
+V-151,Container/namespace escape,pen_req,escape_manual
+V-152,Seccomp/BPF filter bypass,pen_req,syscall_bypass_manual
+V-153,io_uring subsystem abuse,tool_parsing,syzkaller_iouring
+V-154,Signal handling race,pen_req,signal_race_manual
+V-155,Filesystem-layer corruption,tool_parsing,hydra_fuzzer
+V-156,Symlink/hardlink race abuse,pen_req,race_script_manual
+V-157,Live patch/hot-patch integrity,custom_script,patch_sig_verify_probe
+V-158,Regression testing vs known CVEs,tool_parsing,kernjc
+jky_netforensics_extract_flows,Extract flow records from pcap,tool_parsing,tshark+tcpdump+python3
+jky_netforensics_extract_dns,Extract DNS records from pcap,tool_parsing,tshark+tcpdump+python3
+jky_netforensics_extract_http,Extract HTTP records from pcap,tool_parsing,tshark+tcpdump+python3
+jky_netforensics_top_talkers,Rank endpoint pairs by bytes,custom_script,python3
+jky_netforensics_detect_beaconing,Flag periodic callback shapes,custom_script,python3
+jky_netforensics_check_dns_anomalies,Flag DNS tunneling and DGA shapes,custom_script,python3

@@ -1,0 +1,124 @@
+code,test_name,category,tool,script,eval_method,pass_criteria,fail_criteria,default_severity,fallback_method,requires_external_tool
+V-001,Sensitive data via OSINT,tool_parsing,theHarvester,V-001.sh,grep_absent,no email/creds found in output,emails found: , credential, password, secret,Medium,manual_review_required,true
+V-002,Sub-domain enumeration,tool_parsing,subfinder,V-002.sh,grep_absent,no unexpected subdomains,unauthorized/shadow subdomain found,Low,manual_review_required,true
+V-003,Open port/unnecessary service,tool_parsing,rustscan+nmap,V-003.sh,grep_absent,only allow-listed ports open,non-allow-listed port open,Medium,manual_review_required,true
+V-004,DNS spoofing,custom_script,dig+spoof_probe,V-004.sh,exit_code_zero,spoof attempt rejected,spoofed response accepted,High,manual_review_required,false
+V-005,Banner grabbing/fingerprinting,tool_parsing,nmap -sV,V-005.sh,grep_absent,no verbose version banner,verbose version string exposed,Low,manual_review_required,true
+V-006,Weak TLS/SSL version,tool_parsing,testssl.sh,V-006.sh,grep_absent,TLS1.2+ only,SSLv3/TLS1.0/1.1 offered,High,manual_review_required,true
+V-007,Weak cipher suite,tool_parsing,testssl.sh,V-007.sh,grep_absent,strong ciphers only,weak/NULL/EXPORT cipher offered,High,manual_review_required,true
+V-008,Expired/self-signed certificate,tool_parsing,openssl s_client,V-008.sh,grep_absent,cert valid and CA-signed,expired, self-signed cert,Medium,manual_review_required,true
+V-010,Missing HSTS header,tool_parsing,curl -I,V-010.sh,grep_present,Strict-Transport-Security header present,header missing,Medium,manual_review_required,true
+V-011,MITM exposure,custom_script,bettercap_probe,V-011.sh,exit_code_zero,traffic integrity maintained,traffic intercepted/modified,High,manual_review_required,false
+V-012,Default credentials,tool_parsing,hydra,V-012.sh,grep_absent,no valid login with default creds,valid login with default creds,Critical,manual_review_required,true
+V-013,Weak password policy,custom_script,register_probe,V-013.sh,exit_code_zero,weak password rejected,weak password accepted,Medium,manual_review_required,false
+V-016,Credential stuffing exposure,tool_parsing,hydra+breach_list,V-016.sh,grep_absent,no valid login from breach list,valid login from breach list,High,manual_review_required,true
+V-017,Insecure password reset flow,custom_script,curl+hydra+nuclei,V-017.sh,exit_code_zero,secure password reset flow,insecure password reset flow detected,High,manual_review_required,false
+V-018,Session fixation,custom_script,curl+hydra,V-018.sh,exit_code_zero,session ID rotates post-auth,session ID unchanged post-auth,High,manual_review_required,false
+V-019,Weak JWT validation/sig bypass,tool_parsing,jwt_tool,V-019.sh,grep_absent,"signature enforced, alg locked",alg=none or sig bypass accepted,Critical,manual_review_required,true
+V-021,SAML bypass/sig wrapping,tool_parsing,samlraider,V-021.sh,grep_absent,signature wrapping rejected,forged assertion accepted,Critical,manual_review_required,true
+V-023,IDOR,custom_script,id_enum_diff,V-023.sh,grep_absent,cross-user object access denied,cross-user object returned,High,manual_review_required,false
+V-029,SQLi,tool_parsing,sqlmap,V-029.sh,grep_present,no injectable parameter found,injectable parameter confirmed,Critical,manual_review_required,true
+V-030,NoSQLi,tool_parsing,nosqlmap,V-030.sh,grep_present,no NoSQL injection point,NoSQL injection confirmed,Critical,manual_review_required,true
+V-031,LDAPi,custom_script,ldap_payload_probe,V-031.sh,grep_absent,payload sanitized,LDAP filter injection succeeded,High,manual_review_required,false
+V-032,XPATHi,custom_script,xpath_payload_probe,V-032.sh,grep_absent,payload sanitized,XPath injection succeeded,High,manual_review_required,false
+V-033,CMDi/OSCi,tool_parsing,commix,V-033.sh,grep_present,no command injection point,command execution confirmed,Critical,manual_review_required,true
+V-034,Reflected XSS,tool_parsing,xsstrike,V-034.sh,grep_present,payload sanitized/encoded,payload reflected unsanitized,High,manual_review_required,true
+V-035,Stored XSS,tool_parsing,xsstrike,V-035.sh,grep_present,payload sanitized/encoded,payload persisted and executes,High,manual_review_required,true
+V-036,DOM-based XSS,tool_parsing,dominator,V-036.sh,grep_present,sink not reachable,tainted sink executes payload,High,manual_review_required,true
+V-037,XXE,custom_script,xxe_payload_probe,V-037.sh,grep_absent,external entity resolution disabled,entity resolved/file disclosed,Critical,manual_review_required,false
+V-038,SSTI,tool_parsing,tplmap,V-038.sh,grep_present,no template injection,template injection confirmed,Critical,manual_review_required,true
+V-039,CSTI,custom_script,csti_payload_probe,V-039.sh,grep_present,template sandbox holds,sandbox escape/code exec,High,manual_review_required,false
+V-040,SSI,custom_script,ssi_payload_probe,V-040.sh,grep_absent,SSI directives disabled,SSI directive executed,High,manual_review_required,false
+V-041,ESI,custom_script,esi_payload_probe,V-041.sh,grep_absent,ESI processing disabled,ESI include executed,Medium,manual_review_required,false
+V-042,XSLT injection,custom_script,xslt_payload_probe,V-042.sh,grep_absent,XSLT extension disabled,arbitrary XSLT executed,High,manual_review_required,false
+V-043,HHI (Host Header Injection),custom_script,host_header_probe,V-043.sh,grep_absent,host header validated,poisoned host reflected/routed,Medium,manual_review_required,false
+V-044,HPP,custom_script,dup_param_probe,V-044.sh,grep_absent,only first/last param used consistently,inconsistent param parsing exploited,Low,manual_review_required,false
+V-045,CRLF injection,custom_script,crlf_probe,V-045.sh,grep_absent,CRLF sequence stripped,header injection/response splitting,Medium,manual_review_required,false
+V-046,CSRF,custom_script,csrf_poc_probe,V-046.sh,grep_present,anti-CSRF token enforced,state-changing request succeeds w/o token,High,manual_review_required,false
+V-047,SSRF,custom_script,ssrf_callback_probe,V-047.sh,grep_present,no outbound callback received,callback received from server,Critical,manual_review_required,false
+V-048,Open redirect,custom_script,redirect_param_probe,V-048.sh,grep_absent,redirect target allow-listed,arbitrary external redirect,Low,manual_review_required,false
+V-049,HRS/desync,tool_parsing,smuggler,V-049.sh,grep_present,no desync vector found,desync vector confirmed,Critical,manual_review_required,true
+V-050,CORS misconfig,custom_script,origin_header_probe,V-050.sh,grep_absent,ACAO restricted to trusted origins,ACAO reflects arbitrary origin + credentials,High,manual_review_required,false
+V-051,WAF bypass,tool_parsing,wafw00f,V-051.sh,grep_present,WAF detected and payloads blocked,payload bypasses WAF,Medium,manual_review_required,true
+V-052,ReDoS,custom_script,regex_input_probe,V-052.sh,numeric_threshold,response time < 2s,catastrophic backtracking (>10s),Medium,manual_review_required,false
+V-054,Mass assignment,tool_parsing,arjun,V-054.sh,grep_present,hidden fields rejected,hidden field accepted/modified,High,manual_review_required,true
+V-055,Insecure GraphQL,tool_parsing,graphql-cop,V-055.sh,grep_present,introspection/depth limited,"introspection open, no depth limit",Medium,manual_review_required,true
+V-056,Insecure session token design,custom_script,curl+python3,V-056.sh,exit_code_zero,entropy >= 128 bits random,predictable/low-entropy token,High,manual_review_required,false
+V-057,Hardcoded secrets in src/binary,tool_parsing,trufflehog,V-057.sh,grep_absent,no secrets detected,secret/key/token found,Critical,manual_review_required,true
+V-058,Sensitive data in logs/errors,custom_script,log_grep_probe,V-058.sh,grep_absent,no PII/secret in logs,PII/secret/stacktrace exposed,Medium,manual_review_required,false
+V-059,Unencrypted data in local storage,tool_parsing,mobsf,V-059.sh,grep_absent,data encrypted at rest,plaintext sensitive data found,High,manual_review_required,true
+V-060,GPP password exposure,tool_parsing,impacket_gpp,V-060.sh,grep_absent,no cpassword found,cpassword decrypted successfully,Critical,manual_review_required,true
+V-061,DPAPI backup key extraction,tool_parsing,pypykatz,V-061.sh,grep_present,backup key inaccessible,backup key extracted,Critical,manual_review_required,true
+V-062,LFI,tool_parsing,ffuf,V-062.sh,grep_present,no local file inclusion,file content disclosed via traversal,High,manual_review_required,true
+V-063,RFI,custom_script,rfi_payload_probe,V-063.sh,grep_present,remote include blocked,remote file included/executed,Critical,manual_review_required,false
+V-064,Unrestricted file upload,custom_script,upload_bypass_probe,V-064.sh,exit_code_zero,malicious extension/MIME rejected,malicious file uploaded and reachable,Critical,manual_review_required,false
+V-065,Insecure deserialization,tool_parsing,ysoserial,V-065.sh,grep_present,gadget chain rejected,gadget chain executes,Critical,manual_review_required,true
+V-066,PHP object injection,tool_parsing,phpggc,V-066.sh,grep_present,object injection rejected,object injection triggers gadget,Critical,manual_review_required,true
+V-067,Path/directory traversal,tool_parsing,dirsearch,V-067.sh,grep_present,traversal sequences blocked,file outside webroot disclosed,High,manual_review_required,true
+V-069,LPE,tool_parsing,peass-ng,V-069.sh,grep_present,no LPE vector flagged,exploitable LPE vector found,High,manual_review_required,true
+V-070,Unpatched OS/missing patches,tool_parsing,openvas,V-070.sh,grep_present,no missing critical patches,missing critical/high patch,High,manual_review_required,true
+V-071,Exposed admin interface,tool_parsing,nmap+httpx,V-071.sh,grep_absent,admin panel not externally reachable,admin panel reachable unauthenticated,High,manual_review_required,true
+V-073,Misconfigured file/dir permissions,tool_parsing,linpeas,V-073.sh,grep_absent,no world-writable sensitive files,world-writable/SUID misconfig found,Medium,manual_review_required,true
+V-074,Insecure cron/scheduled task,tool_parsing,linpeas,V-074.sh,grep_absent,cron scripts not writable by low-priv,writable cron script found,Medium,manual_review_required,true
+V-077,Use-after-free,tool_parsing,kasan+syzkaller,V-077.sh,grep_present,no KASAN UAF report,KASAN use-after-free report,Critical,manual_review_required,true
+V-078,Double free,tool_parsing,kasan+syzkaller,V-078.sh,grep_present,no KASAN double-free report,KASAN double-free report,Critical,manual_review_required,true
+V-079,OOB read,tool_parsing,kasan+syzkaller,V-079.sh,grep_present,no KASAN OOB-read report,KASAN out-of-bounds read report,High,manual_review_required,true
+V-080,OOB write,tool_parsing,kasan+syzkaller,V-080.sh,grep_present,no KASAN OOB-write report,KASAN out-of-bounds write report,Critical,manual_review_required,true
+V-081,Null pointer dereference,tool_parsing,syzkaller,V-081.sh,grep_present,no NULL deref crash,NULL pointer dereference crash logged,Medium,manual_review_required,true
+V-082,Memory leak,tool_parsing,valgrind,V-082.sh,grep_present,no leak summary bytes,definitely lost bytes > 0,Low,manual_review_required,true
+V-083,Format string vuln,tool_parsing,flawfinder,V-083.sh,grep_present,no format string warning,user-controlled format string flagged,High,manual_review_required,true
+V-084,Race condition,tool_parsing,kcsan,V-084.sh,grep_present,no KCSAN race report,KCSAN data race reported,Medium,manual_review_required,true
+V-086,ROP exposure,tool_parsing,checksec,V-086.sh,grep_absent,NX/PIE/RELRO/Canary enabled,one or more protections disabled,Medium,manual_review_required,true
+V-087,Vulnerable dependencies/SCA,tool_parsing,grype+syft,V-087.sh,grep_present,no known-CVE dependency,CVE match in dependency tree,High,manual_review_required,true
+V-088,Missing/incomplete SBOM,tool_parsing,syft,V-088.sh,exit_code_zero,SBOM generated and complete,SBOM generation failed/incomplete,Low,manual_review_required,true
+V-089,ARP spoofing,tool_parsing,bettercap,V-089.sh,grep_present,no ARP poisoning accepted,ARP table poisoned successfully,High,manual_review_required,true
+V-090,LLMNR poisoning,tool_parsing,responder,V-090.sh,grep_present,no hash captured,NTLM hash captured via LLMNR,High,manual_review_required,true
+V-091,NBT-NS poisoning,tool_parsing,responder,V-091.sh,grep_present,no hash captured,NTLM hash captured via NBT-NS,High,manual_review_required,true
+V-092,WPAD spoofing,tool_parsing,responder,V-092.sh,grep_present,no WPAD hash captured,WPAD-based hash captured,High,manual_review_required,true
+V-093,SMB relay,tool_parsing,netexec+ntlmrelayx,V-093.sh,grep_present,relay attempt rejected,auth relayed successfully,Critical,manual_review_required,true
+V-094,Kerberoasting,tool_parsing,impacket_GetUserSPNs,V-094.sh,grep_present,no crackable SPN ticket,crackable service ticket hash obtained,High,manual_review_required,true
+V-095,AS-REP roasting,tool_parsing,impacket_GetNPUsers,V-095.sh,grep_present,no pre-auth-disabled accounts,AS-REP hash obtained,High,manual_review_required,true
+V-096,Pass-the-Hash,tool_parsing,netexec,V-096.sh,grep_present,hash auth rejected,hash-based auth succeeded,Critical,manual_review_required,true
+V-097,Pass-the-Ticket,tool_parsing,impacket,V-097.sh,grep_present,ticket reuse rejected,ticket reuse succeeded,Critical,manual_review_required,true
+V-098,Pass-the-Key,tool_parsing,pypykatz,V-098.sh,grep_present,key-based auth rejected,key-based auth succeeded,Critical,manual_review_required,true
+V-099,DCSync,tool_parsing,impacket_secretsdump,V-099.sh,grep_present,replication rights denied,NTDS hashes dumped via DCSync,Critical,manual_review_required,true
+V-101,PAC tampering/silver ticket,tool_parsing,impacket_ticketer,V-101.sh,grep_present,forged ticket rejected,forged silver ticket accepted,Critical,manual_review_required,true
+V-102,Golden ticket forgery,tool_parsing,impacket_ticketer,V-102.sh,grep_present,forged TGT rejected,forged golden ticket accepted,Critical,manual_review_required,true
+V-103,ADCS abuse,tool_parsing,certipy,V-103.sh,grep_present,no vulnerable cert template,ESC1-8 vulnerable template found,Critical,manual_review_required,true
+V-104,VLAN hopping,tool_parsing,yersinia,V-104.sh,grep_present,trunk negotiation rejected,double-tagging/DTP hop succeeded,High,manual_review_required,true
+V-105,Flat network/no segmentation,custom_script,segmentation_probe,V-105.sh,grep_absent,cross-segment traffic blocked,cross-segment traffic reaches target,Medium,manual_review_required,false
+V-106,Public cloud storage exposure,tool_parsing,cloud_enum,V-106.sh,grep_absent,no public bucket/blob found,publicly readable bucket/blob found,High,manual_review_required,true
+V-107,IAM/policy misconfig,tool_parsing,scoutsuite,V-107.sh,grep_present,no overly-permissive policy,wildcard/overly-permissive policy found,High,manual_review_required,true
+V-108,Security group misconfig,tool_parsing,scoutsuite,V-108.sh,grep_present,no 0.0.0.0/0 sensitive port,0.0.0.0/0 open on sensitive port,High,manual_review_required,true
+V-109,IMDS abuse,custom_script,imds_curl_probe,V-109.sh,grep_absent,IMDSv2 enforced/token required,IMDSv1 credentials retrieved,Critical,manual_review_required,false
+V-110,CSPM flaw,tool_parsing,prowler,V-110.sh,grep_present,no failed CIS benchmark check,failed CIS benchmark control,Medium,manual_review_required,true
+V-113,Build secret exposure,tool_parsing,trufflehog_cicd,V-113.sh,grep_absent,no secret in CI/CD logs,secret found in pipeline logs/vars,Critical,manual_review_required,true
+V-114,Artifact/dependency poisoning,tool_parsing,cosign+syft,V-114.sh,exit_code_zero,artifact signature verified,unsigned/tampered artifact accepted,High,manual_review_required,true
+V-118,JDWP exposure,tool_parsing,nmap_jdwp,V-118.sh,grep_absent,JDWP port closed/auth required,JDWP exposed unauthenticated,Critical,manual_review_required,true
+V-119,Insecure IPC/exported component,tool_parsing,drozer,V-119.sh,grep_present,exported components require permission,exported component accessible w/o perm,High,manual_review_required,true
+V-122,Insecure local storage in client app,tool_parsing,objection,V-122.sh,grep_absent,data encrypted/keychain-protected,plaintext sensitive data in storage,High,manual_review_required,true
+V-123,Lack of obfuscation/anti-tamper,tool_parsing,jadx+apktool,V-123.sh,grep_absent,"code obfuscated, tamper checks present","fully readable source, no integrity check",Low,manual_review_required,true
+V-126,ReDoS/algorithmic complexity DoS,custom_script,crafted_input_probe,V-126.sh,numeric_threshold,response time < 2s,catastrophic backtracking (>10s),Medium,manual_review_required,false
+V-127,Missing rate limiting/brute force,tool_parsing,hydra+intruder,V-127.sh,grep_absent,requests throttled/blocked after N attempts,unlimited attempts accepted,High,manual_review_required,true
+V-128,Prompt injection,tool_parsing,garak,V-128.sh,grep_present,no successful injection probe,probe successfully overrides instructions,High,manual_review_required,true
+V-129,LLM jailbreak,tool_parsing,garak,V-129.sh,grep_present,no successful jailbreak probe,probe bypasses safety guardrails,High,manual_review_required,true
+V-130,Sensitive data exposure via model output,tool_parsing,garak,V-130.sh,grep_present,no PII/training data leaked,PII, memorized data leaked in output,High,manual_review_required,true
+V-132,Coverage-guided fuzzing,tool_parsing,syzkaller,V-132.sh,grep_present,no new crash signature,new unique crash found,Medium,manual_review_required,true
+V-133,Structure-aware syscall fuzzing,tool_parsing,syzkaller,V-133.sh,grep_present,no new crash signature,new unique crash found,Medium,manual_review_required,true
+V-134,Driver-targeted fuzzing,tool_parsing,difuze,V-134.sh,grep_present,no driver crash,driver crash/panic triggered,High,manual_review_required,true
+V-135,KASAN crash triage,tool_parsing,kasan,V-135.sh,grep_present,no KASAN report in dmesg,KASAN violation report present,Critical,manual_review_required,true
+V-136,UBSAN detection,tool_parsing,ubsan,V-136.sh,grep_present,no UBSAN report,undefined behavior report present,Medium,manual_review_required,true
+V-137,Concurrency/data-race detection,tool_parsing,kcsan+lockdep,V-137.sh,grep_present,no race/lockdep warning,data race, lock ordering violation,Medium,manual_review_required,true
+V-139,Runtime Verification,tool_parsing,rv_framework,V-139.sh,grep_present,all monitored properties held,property violation detected at runtime,Medium,manual_review_required,true
+V-140,LKMM formal analysis,tool_parsing,lkmm,V-140.sh,grep_present,memory model check passes,LKMM ordering violation found,Medium,manual_review_required,true
+V-141,eBPF verifier soundness,tool_parsing,agni,V-141.sh,grep_present,verifier soundness holds,verifier bypass/unsound accept found,Critical,manual_review_required,true
+V-142,Buffer overflow brute-force,tool_parsing,bfbtester,V-142.sh,grep_present,no crash on boundary input,crash/overflow on boundary input,High,manual_review_required,true
+V-143,Static source auditing,tool_parsing,flawfinder+cppcheck,V-143.sh,grep_present,no high-risk function flagged,high-risk/unsafe function flagged,Medium,manual_review_required,true
+V-144,Kernel hardening config audit,tool_parsing,kernel-hardening-checker,V-144.sh,grep_present,recommended hardening options set,recommended hardening options missing,Medium,manual_review_required,true
+V-145,NX/Exec-shield verification,tool_parsing,checksec+paxtest,V-145.sh,grep_absent,NX/exec-shield enabled,NX/exec-shield disabled, bypassed,Medium,manual_review_required,true
+V-146,PaX/grsecurity bypass testing,tool_parsing,paxtest,V-146.sh,grep_absent,all PaX tests killed as expected,PaX protection bypassed,High,manual_review_required,true
+V-149,Module/driver loading abuse,custom_script,insmod_modprobe_probe,V-149.sh,exit_code_zero,unsigned module load rejected,unsigned/malicious module loaded,Critical,manual_review_required,false
+V-153,io_uring subsystem abuse,tool_parsing,syzkaller_iouring,V-153.sh,grep_present,no io_uring crash/priv issue,io_uring crash, priv-esc found,High,manual_review_required,true
+V-155,Filesystem-layer corruption,tool_parsing,hydra_fuzzer,V-155.sh,grep_present,no corruption on malformed FS input,filesystem corruption/crash induced,Medium,manual_review_required,true
+V-157,Live patch/hot-patch integrity,custom_script,patch_sig_verify_probe,V-157.sh,exit_code_zero,patch signature verified before load,unsigned/tampered patch applied,Critical,manual_review_required,false
+V-158,Regression testing vs known CVEs,tool_parsing,kernjc,V-158.sh,grep_present,no regression of patched CVE,previously-patched CVE reproducible,High,manual_review_required,true

@@ -1,0 +1,1562 @@
+{
+  "V-001": {
+    "name": "Sensitive data via OSINT",
+    "category": "tool_parsing",
+    "tool": "theHarvester",
+    "script": "V-001.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no email/creds found in output",
+      "fail_criteria": "emails found: , credential, password, secret"
+    },
+    "default_severity": "Medium"
+  },
+  "V-002": {
+    "name": "Sub-domain enumeration",
+    "category": "tool_parsing",
+    "tool": "subfinder",
+    "script": "V-002.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no unexpected subdomains",
+      "fail_criteria": "unauthorized/shadow subdomain found"
+    },
+    "default_severity": "Low"
+  },
+  "V-003": {
+    "name": "Open port/unnecessary service",
+    "category": "tool_parsing",
+    "tool": "rustscan+nmap",
+    "script": "V-003.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "only allow-listed ports open",
+      "fail_criteria": "non-allow-listed port open"
+    },
+    "default_severity": "Medium"
+  },
+  "V-004": {
+    "name": "DNS spoofing",
+    "category": "custom_script",
+    "tool": "dig+spoof_probe",
+    "script": "V-004.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "spoof attempt rejected",
+      "fail_criteria": "spoofed response accepted"
+    },
+    "default_severity": "High"
+  },
+  "V-005": {
+    "name": "Banner grabbing/fingerprinting",
+    "category": "tool_parsing",
+    "tool": "nmap -sV",
+    "script": "V-005.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no verbose version banner",
+      "fail_criteria": "verbose version string exposed"
+    },
+    "default_severity": "Low"
+  },
+  "V-006": {
+    "name": "Weak TLS/SSL version",
+    "category": "tool_parsing",
+    "tool": "testssl.sh",
+    "script": "V-006.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "TLS1.2+ only",
+      "fail_criteria": "SSLv3/TLS1.0/1.1 offered"
+    },
+    "default_severity": "High"
+  },
+  "V-007": {
+    "name": "Weak cipher suite",
+    "category": "tool_parsing",
+    "tool": "testssl.sh",
+    "script": "V-007.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "strong ciphers only",
+      "fail_criteria": "weak/NULL/EXPORT cipher offered"
+    },
+    "default_severity": "High"
+  },
+  "V-008": {
+    "name": "Expired/self-signed certificate",
+    "category": "tool_parsing",
+    "tool": "openssl s_client",
+    "script": "V-008.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "cert valid and CA-signed",
+      "fail_criteria": "expired, self-signed cert"
+    },
+    "default_severity": "Medium"
+  },
+  "V-009": {
+    "name": "Lack of SSL pinning",
+    "category": "tool_parsing",
+    "tool": "sslscan+openssl",
+    "script": "V-009.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "SSL pinning detected",
+      "fail_criteria": "no pinning, standard CA trust only"
+    },
+    "default_severity": "High"
+  },
+  "V-010": {
+    "name": "Missing HSTS header",
+    "category": "tool_parsing",
+    "tool": "curl -I",
+    "script": "V-010.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "Strict-Transport-Security header present",
+      "fail_criteria": "header missing"
+    },
+    "default_severity": "Medium"
+  },
+  "V-011": {
+    "name": "MITM exposure",
+    "category": "custom_script",
+    "tool": "bettercap+curl+openssl+arp",
+    "script": "V-011.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "traffic integrity maintained",
+      "fail_criteria": "traffic intercepted/modified"
+    },
+    "default_severity": "High"
+  },
+  "V-012": {
+    "name": "Default credentials",
+    "category": "tool_parsing",
+    "tool": "hydra",
+    "script": "V-012.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no valid login with default creds",
+      "fail_criteria": "valid login with default creds"
+    },
+    "default_severity": "Critical"
+  },
+  "V-013": {
+    "name": "Weak password policy",
+    "category": "custom_script",
+    "tool": "curl",
+    "script": "V-013.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "strong password policy enforced",
+      "fail_criteria": "weak/no password policy found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-016": {
+    "name": "Credential stuffing exposure",
+    "category": "custom_script",
+    "tool": "hydra+curl",
+    "script": "V-016.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "credential stuffing protections detected",
+      "fail_criteria": "vulnerable to credential stuffing"
+    },
+    "default_severity": "High"
+  },
+  "V-017": {
+    "name": "Insecure password reset flow",
+    "category": "custom_script",
+    "tool": "curl+hydra+nuclei",
+    "script": "V-017.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "secure password reset flow",
+      "fail_criteria": "insecure password reset flow detected"
+    },
+    "default_severity": "High"
+  },
+  "V-018": {
+    "name": "Session fixation",
+    "category": "custom_script",
+    "tool": "curl+hydra",
+    "script": "V-018.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "session ID rotates post-auth",
+      "fail_criteria": "session ID unchanged post-auth"
+    },
+    "default_severity": "High"
+  },
+  "V-019": {
+    "name": "Weak JWT validation/sig bypass",
+    "category": "tool_parsing",
+    "tool": "jwt_tool",
+    "script": "V-019.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "signature enforced, alg locked",
+      "fail_criteria": "alg=none or sig bypass accepted"
+    },
+    "default_severity": "Critical"
+  },
+  "V-021": {
+    "name": "SAML bypass/sig wrapping",
+    "category": "tool_parsing",
+    "tool": "samlraider",
+    "script": "V-021.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "signature wrapping rejected",
+      "fail_criteria": "forged assertion accepted"
+    },
+    "default_severity": "Critical"
+  },
+  "V-023": {
+    "name": "IDOR",
+    "category": "custom_script",
+    "tool": "id_enum_diff",
+    "script": "V-023.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "cross-user object access denied",
+      "fail_criteria": "cross-user object returned"
+    },
+    "default_severity": "High"
+  },
+  "V-029": {
+    "name": "SQLi",
+    "category": "tool_parsing",
+    "tool": "sqlmap",
+    "script": "V-029.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no injectable parameter found",
+      "fail_criteria": "injectable parameter confirmed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-030": {
+    "name": "NoSQLi",
+    "category": "tool_parsing",
+    "tool": "nosqlmap",
+    "script": "V-030.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no NoSQL injection point",
+      "fail_criteria": "NoSQL injection confirmed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-031": {
+    "name": "LDAPi",
+    "category": "custom_script",
+    "tool": "ldap_payload_probe",
+    "script": "V-031.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "payload sanitized",
+      "fail_criteria": "LDAP filter injection succeeded"
+    },
+    "default_severity": "High"
+  },
+  "V-032": {
+    "name": "XPATHi",
+    "category": "custom_script",
+    "tool": "xpath_payload_probe",
+    "script": "V-032.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "payload sanitized",
+      "fail_criteria": "XPath injection succeeded"
+    },
+    "default_severity": "High"
+  },
+  "V-033": {
+    "name": "CMDi/OSCi",
+    "category": "tool_parsing",
+    "tool": "commix",
+    "script": "V-033.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no command injection point",
+      "fail_criteria": "command execution confirmed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-034": {
+    "name": "Reflected XSS",
+    "category": "tool_parsing",
+    "tool": "xsstrike",
+    "script": "V-034.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "payload sanitized/encoded",
+      "fail_criteria": "payload reflected unsanitized"
+    },
+    "default_severity": "High"
+  },
+  "V-035": {
+    "name": "Stored XSS",
+    "category": "tool_parsing",
+    "tool": "xsstrike",
+    "script": "V-035.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "payload sanitized/encoded",
+      "fail_criteria": "payload persisted and executes"
+    },
+    "default_severity": "High"
+  },
+  "V-036": {
+    "name": "DOM-based XSS",
+    "category": "tool_parsing",
+    "tool": "dominator",
+    "script": "V-036.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "sink not reachable",
+      "fail_criteria": "tainted sink executes payload"
+    },
+    "default_severity": "High"
+  },
+  "V-037": {
+    "name": "XXE",
+    "category": "custom_script",
+    "tool": "xxe_payload_probe",
+    "script": "V-037.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "external entity resolution disabled",
+      "fail_criteria": "entity resolved/file disclosed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-038": {
+    "name": "SSTI",
+    "category": "tool_parsing",
+    "tool": "tplmap",
+    "script": "V-038.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no template injection",
+      "fail_criteria": "template injection confirmed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-039": {
+    "name": "CSTI",
+    "category": "custom_script",
+    "tool": "csti_payload_probe",
+    "script": "V-039.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "template sandbox holds",
+      "fail_criteria": "sandbox escape/code exec"
+    },
+    "default_severity": "High"
+  },
+  "V-040": {
+    "name": "SSI",
+    "category": "custom_script",
+    "tool": "ssi_payload_probe",
+    "script": "V-040.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "SSI directives disabled",
+      "fail_criteria": "SSI directive executed"
+    },
+    "default_severity": "High"
+  },
+  "V-041": {
+    "name": "ESI",
+    "category": "custom_script",
+    "tool": "esi_payload_probe",
+    "script": "V-041.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "ESI processing disabled",
+      "fail_criteria": "ESI include executed"
+    },
+    "default_severity": "Medium"
+  },
+  "V-042": {
+    "name": "XSLT injection",
+    "category": "custom_script",
+    "tool": "xslt_payload_probe",
+    "script": "V-042.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "XSLT extension disabled",
+      "fail_criteria": "arbitrary XSLT executed"
+    },
+    "default_severity": "High"
+  },
+  "V-043": {
+    "name": "HHI (Host Header Injection)",
+    "category": "custom_script",
+    "tool": "host_header_probe",
+    "script": "V-043.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "host header validated",
+      "fail_criteria": "poisoned host reflected/routed"
+    },
+    "default_severity": "Medium"
+  },
+  "V-044": {
+    "name": "HPP",
+    "category": "custom_script",
+    "tool": "dup_param_probe",
+    "script": "V-044.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "only first/last param used consistently",
+      "fail_criteria": "inconsistent param parsing exploited"
+    },
+    "default_severity": "Low"
+  },
+  "V-045": {
+    "name": "CRLF injection",
+    "category": "custom_script",
+    "tool": "crlf_probe",
+    "script": "V-045.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "CRLF sequence stripped",
+      "fail_criteria": "header injection/response splitting"
+    },
+    "default_severity": "Medium"
+  },
+  "V-046": {
+    "name": "CSRF",
+    "category": "custom_script",
+    "tool": "csrf_poc_probe",
+    "script": "V-046.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "anti-CSRF token enforced",
+      "fail_criteria": "state-changing request succeeds w/o token"
+    },
+    "default_severity": "High"
+  },
+  "V-047": {
+    "name": "SSRF",
+    "category": "custom_script",
+    "tool": "ssrf_callback_probe",
+    "script": "V-047.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no outbound callback received",
+      "fail_criteria": "callback received from server"
+    },
+    "default_severity": "Critical"
+  },
+  "V-048": {
+    "name": "Open redirect",
+    "category": "custom_script",
+    "tool": "redirect_param_probe",
+    "script": "V-048.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "redirect target allow-listed",
+      "fail_criteria": "arbitrary external redirect"
+    },
+    "default_severity": "Low"
+  },
+  "V-049": {
+    "name": "HRS/desync",
+    "category": "tool_parsing",
+    "tool": "smuggler",
+    "script": "V-049.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no desync vector found",
+      "fail_criteria": "desync vector confirmed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-050": {
+    "name": "CORS misconfig",
+    "category": "custom_script",
+    "tool": "origin_header_probe",
+    "script": "V-050.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "ACAO restricted to trusted origins",
+      "fail_criteria": "ACAO reflects arbitrary origin + credentials"
+    },
+    "default_severity": "High"
+  },
+  "V-051": {
+    "name": "WAF bypass",
+    "category": "tool_parsing",
+    "tool": "wafw00f",
+    "script": "V-051.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "WAF detected and payloads blocked",
+      "fail_criteria": "payload bypasses WAF"
+    },
+    "default_severity": "Medium"
+  },
+  "V-052": {
+    "name": "ReDoS",
+    "category": "custom_script",
+    "tool": "regex_input_probe",
+    "script": "V-052.sh",
+    "decision_rule": {
+      "method": "numeric_threshold",
+      "pass_criteria": "response time < 2s",
+      "fail_criteria": "catastrophic backtracking (>10s)"
+    },
+    "default_severity": "Medium"
+  },
+  "V-054": {
+    "name": "Mass assignment",
+    "category": "tool_parsing",
+    "tool": "arjun",
+    "script": "V-054.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "hidden fields rejected",
+      "fail_criteria": "hidden field accepted/modified"
+    },
+    "default_severity": "High"
+  },
+  "V-055": {
+    "name": "Insecure GraphQL",
+    "category": "tool_parsing",
+    "tool": "graphql-cop",
+    "script": "V-055.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "introspection/depth limited",
+      "fail_criteria": "introspection open, no depth limit"
+    },
+    "default_severity": "Medium"
+  },
+  "V-056": {
+    "name": "Insecure session token design",
+    "category": "custom_script",
+    "tool": "curl+python3",
+    "script": "V-056.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "entropy >= 128 bits, random",
+      "fail_criteria": "predictable/low-entropy token"
+    },
+    "default_severity": "High"
+  },
+  "V-057": {
+    "name": "Hardcoded secrets in src/binary",
+    "category": "tool_parsing",
+    "tool": "trufflehog",
+    "script": "V-057.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no secrets detected",
+      "fail_criteria": "secret/key/token found"
+    },
+    "default_severity": "Critical"
+  },
+  "V-058": {
+    "name": "Sensitive data in logs/errors",
+    "category": "custom_script",
+    "tool": "log_grep_probe",
+    "script": "V-058.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no PII/secret in logs",
+      "fail_criteria": "PII/secret/stacktrace exposed"
+    },
+    "default_severity": "Medium"
+  },
+  "V-059": {
+    "name": "Unencrypted data in local storage",
+    "category": "tool_parsing",
+    "tool": "mobsf",
+    "script": "V-059.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "data encrypted at rest",
+      "fail_criteria": "plaintext sensitive data found"
+    },
+    "default_severity": "High"
+  },
+  "V-060": {
+    "name": "GPP password exposure",
+    "category": "tool_parsing",
+    "tool": "impacket_gpp",
+    "script": "V-060.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no cpassword found",
+      "fail_criteria": "cpassword decrypted successfully"
+    },
+    "default_severity": "Critical"
+  },
+  "V-061": {
+    "name": "DPAPI backup key extraction",
+    "category": "tool_parsing",
+    "tool": "pypykatz",
+    "script": "V-061.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "backup key inaccessible",
+      "fail_criteria": "backup key extracted"
+    },
+    "default_severity": "Critical"
+  },
+  "V-062": {
+    "name": "LFI",
+    "category": "tool_parsing",
+    "tool": "ffuf",
+    "script": "V-062.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no local file inclusion",
+      "fail_criteria": "file content disclosed via traversal"
+    },
+    "default_severity": "High"
+  },
+  "V-063": {
+    "name": "RFI",
+    "category": "custom_script",
+    "tool": "rfi_payload_probe",
+    "script": "V-063.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "remote include blocked",
+      "fail_criteria": "remote file included/executed"
+    },
+    "default_severity": "Critical"
+  },
+  "V-064": {
+    "name": "Unrestricted file upload",
+    "category": "custom_script",
+    "tool": "upload_bypass_probe",
+    "script": "V-064.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "malicious extension/MIME rejected",
+      "fail_criteria": "malicious file uploaded and reachable"
+    },
+    "default_severity": "Critical"
+  },
+  "V-065": {
+    "name": "Insecure deserialization",
+    "category": "tool_parsing",
+    "tool": "ysoserial",
+    "script": "V-065.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "gadget chain rejected",
+      "fail_criteria": "gadget chain executes"
+    },
+    "default_severity": "Critical"
+  },
+  "V-066": {
+    "name": "PHP object injection",
+    "category": "tool_parsing",
+    "tool": "phpggc",
+    "script": "V-066.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "object injection rejected",
+      "fail_criteria": "object injection triggers gadget"
+    },
+    "default_severity": "Critical"
+  },
+  "V-067": {
+    "name": "Path/directory traversal",
+    "category": "tool_parsing",
+    "tool": "dirsearch",
+    "script": "V-067.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "traversal sequences blocked",
+      "fail_criteria": "file outside webroot disclosed"
+    },
+    "default_severity": "High"
+  },
+  "V-069": {
+    "name": "LPE",
+    "category": "tool_parsing",
+    "tool": "peass-ng",
+    "script": "V-069.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no LPE vector flagged",
+      "fail_criteria": "exploitable LPE vector found"
+    },
+    "default_severity": "High"
+  },
+  "V-070": {
+    "name": "Unpatched OS/missing patches",
+    "category": "tool_parsing",
+    "tool": "openvas",
+    "script": "V-070.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no missing critical patches",
+      "fail_criteria": "missing critical/high patch"
+    },
+    "default_severity": "High"
+  },
+  "V-071": {
+    "name": "Exposed admin interface",
+    "category": "tool_parsing",
+    "tool": "nmap+httpx",
+    "script": "V-071.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "admin panel not externally reachable",
+      "fail_criteria": "admin panel reachable unauthenticated"
+    },
+    "default_severity": "High"
+  },
+  "V-073": {
+    "name": "Misconfigured file/dir permissions",
+    "category": "tool_parsing",
+    "tool": "linpeas",
+    "script": "V-073.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no world-writable sensitive files",
+      "fail_criteria": "world-writable/SUID misconfig found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-074": {
+    "name": "Insecure cron/scheduled task",
+    "category": "tool_parsing",
+    "tool": "linpeas",
+    "script": "V-074.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "cron scripts not writable by low-priv",
+      "fail_criteria": "writable cron script found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-077": {
+    "name": "Use-after-free",
+    "category": "tool_parsing",
+    "tool": "kasan+syzkaller",
+    "script": "V-077.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KASAN UAF report",
+      "fail_criteria": "KASAN use-after-free report"
+    },
+    "default_severity": "Critical"
+  },
+  "V-078": {
+    "name": "Double free",
+    "category": "tool_parsing",
+    "tool": "kasan+syzkaller",
+    "script": "V-078.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KASAN double-free report",
+      "fail_criteria": "KASAN double-free report"
+    },
+    "default_severity": "Critical"
+  },
+  "V-079": {
+    "name": "OOB read",
+    "category": "tool_parsing",
+    "tool": "kasan+syzkaller",
+    "script": "V-079.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KASAN OOB-read report",
+      "fail_criteria": "KASAN out-of-bounds read report"
+    },
+    "default_severity": "High"
+  },
+  "V-080": {
+    "name": "OOB write",
+    "category": "tool_parsing",
+    "tool": "kasan+syzkaller",
+    "script": "V-080.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KASAN OOB-write report",
+      "fail_criteria": "KASAN out-of-bounds write report"
+    },
+    "default_severity": "Critical"
+  },
+  "V-081": {
+    "name": "Null pointer dereference",
+    "category": "tool_parsing",
+    "tool": "syzkaller",
+    "script": "V-081.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no NULL deref crash",
+      "fail_criteria": "NULL pointer dereference crash logged"
+    },
+    "default_severity": "Medium"
+  },
+  "V-082": {
+    "name": "Memory leak",
+    "category": "tool_parsing",
+    "tool": "valgrind",
+    "script": "V-082.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no leak summary bytes",
+      "fail_criteria": "definitely lost bytes > 0"
+    },
+    "default_severity": "Low"
+  },
+  "V-083": {
+    "name": "Format string vuln",
+    "category": "tool_parsing",
+    "tool": "flawfinder",
+    "script": "V-083.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no format string warning",
+      "fail_criteria": "user-controlled format string flagged"
+    },
+    "default_severity": "High"
+  },
+  "V-084": {
+    "name": "Race condition",
+    "category": "tool_parsing",
+    "tool": "kcsan",
+    "script": "V-084.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KCSAN race report",
+      "fail_criteria": "KCSAN data race reported"
+    },
+    "default_severity": "Medium"
+  },
+  "V-086": {
+    "name": "ROP exposure",
+    "category": "tool_parsing",
+    "tool": "checksec",
+    "script": "V-086.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "NX/PIE/RELRO/Canary enabled",
+      "fail_criteria": "one or more protections disabled"
+    },
+    "default_severity": "Medium"
+  },
+  "V-087": {
+    "name": "Vulnerable dependencies/SCA",
+    "category": "tool_parsing",
+    "tool": "grype+syft",
+    "script": "V-087.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no known-CVE dependency",
+      "fail_criteria": "CVE match in dependency tree"
+    },
+    "default_severity": "High"
+  },
+  "V-088": {
+    "name": "Missing/incomplete SBOM",
+    "category": "tool_parsing",
+    "tool": "syft",
+    "script": "V-088.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "SBOM generated and complete",
+      "fail_criteria": "SBOM generation failed/incomplete"
+    },
+    "default_severity": "Low"
+  },
+  "V-089": {
+    "name": "ARP spoofing",
+    "category": "tool_parsing",
+    "tool": "bettercap",
+    "script": "V-089.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no ARP poisoning accepted",
+      "fail_criteria": "ARP table poisoned successfully"
+    },
+    "default_severity": "High"
+  },
+  "V-090": {
+    "name": "LLMNR poisoning",
+    "category": "tool_parsing",
+    "tool": "responder",
+    "script": "V-090.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no hash captured",
+      "fail_criteria": "NTLM hash captured via LLMNR"
+    },
+    "default_severity": "High"
+  },
+  "V-091": {
+    "name": "NBT-NS poisoning",
+    "category": "tool_parsing",
+    "tool": "responder",
+    "script": "V-091.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no hash captured",
+      "fail_criteria": "NTLM hash captured via NBT-NS"
+    },
+    "default_severity": "High"
+  },
+  "V-092": {
+    "name": "WPAD spoofing",
+    "category": "tool_parsing",
+    "tool": "responder",
+    "script": "V-092.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no WPAD hash captured",
+      "fail_criteria": "WPAD-based hash captured"
+    },
+    "default_severity": "High"
+  },
+  "V-093": {
+    "name": "SMB relay",
+    "category": "tool_parsing",
+    "tool": "netexec+ntlmrelayx",
+    "script": "V-093.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "relay attempt rejected",
+      "fail_criteria": "auth relayed successfully"
+    },
+    "default_severity": "Critical"
+  },
+  "V-094": {
+    "name": "Kerberoasting",
+    "category": "tool_parsing",
+    "tool": "impacket_GetUserSPNs",
+    "script": "V-094.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no crackable SPN ticket",
+      "fail_criteria": "crackable service ticket hash obtained"
+    },
+    "default_severity": "High"
+  },
+  "V-095": {
+    "name": "AS-REP roasting",
+    "category": "tool_parsing",
+    "tool": "impacket_GetNPUsers",
+    "script": "V-095.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no pre-auth-disabled accounts",
+      "fail_criteria": "AS-REP hash obtained"
+    },
+    "default_severity": "High"
+  },
+  "V-096": {
+    "name": "Pass-the-Hash",
+    "category": "tool_parsing",
+    "tool": "netexec",
+    "script": "V-096.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "hash auth rejected",
+      "fail_criteria": "hash-based auth succeeded"
+    },
+    "default_severity": "Critical"
+  },
+  "V-097": {
+    "name": "Pass-the-Ticket",
+    "category": "tool_parsing",
+    "tool": "impacket",
+    "script": "V-097.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "ticket reuse rejected",
+      "fail_criteria": "ticket reuse succeeded"
+    },
+    "default_severity": "Critical"
+  },
+  "V-098": {
+    "name": "Pass-the-Key",
+    "category": "tool_parsing",
+    "tool": "pypykatz",
+    "script": "V-098.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "key-based auth rejected",
+      "fail_criteria": "key-based auth succeeded"
+    },
+    "default_severity": "Critical"
+  },
+  "V-099": {
+    "name": "DCSync",
+    "category": "tool_parsing",
+    "tool": "impacket_secretsdump",
+    "script": "V-099.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "replication rights denied",
+      "fail_criteria": "NTDS hashes dumped via DCSync"
+    },
+    "default_severity": "Critical"
+  },
+  "V-101": {
+    "name": "PAC tampering/silver ticket",
+    "category": "tool_parsing",
+    "tool": "impacket_ticketer",
+    "script": "V-101.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "forged ticket rejected",
+      "fail_criteria": "forged silver ticket accepted"
+    },
+    "default_severity": "Critical"
+  },
+  "V-102": {
+    "name": "Golden ticket forgery",
+    "category": "tool_parsing",
+    "tool": "impacket_ticketer",
+    "script": "V-102.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "forged TGT rejected",
+      "fail_criteria": "forged golden ticket accepted"
+    },
+    "default_severity": "Critical"
+  },
+  "V-103": {
+    "name": "ADCS abuse",
+    "category": "tool_parsing",
+    "tool": "certipy",
+    "script": "V-103.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no vulnerable cert template",
+      "fail_criteria": "ESC1-8 vulnerable template found"
+    },
+    "default_severity": "Critical"
+  },
+  "V-104": {
+    "name": "VLAN hopping",
+    "category": "tool_parsing",
+    "tool": "yersinia",
+    "script": "V-104.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "trunk negotiation rejected",
+      "fail_criteria": "double-tagging/DTP hop succeeded"
+    },
+    "default_severity": "High"
+  },
+  "V-105": {
+    "name": "Flat network/no segmentation",
+    "category": "custom_script",
+    "tool": "segmentation_probe",
+    "script": "V-105.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "cross-segment traffic blocked",
+      "fail_criteria": "cross-segment traffic reaches target"
+    },
+    "default_severity": "Medium"
+  },
+  "V-106": {
+    "name": "Public cloud storage exposure",
+    "category": "tool_parsing",
+    "tool": "cloud_enum",
+    "script": "V-106.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no public bucket/blob found",
+      "fail_criteria": "publicly readable bucket/blob found"
+    },
+    "default_severity": "High"
+  },
+  "V-107": {
+    "name": "IAM/policy misconfig",
+    "category": "tool_parsing",
+    "tool": "scoutsuite",
+    "script": "V-107.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no overly-permissive policy",
+      "fail_criteria": "wildcard/overly-permissive policy found"
+    },
+    "default_severity": "High"
+  },
+  "V-108": {
+    "name": "Security group misconfig",
+    "category": "tool_parsing",
+    "tool": "scoutsuite",
+    "script": "V-108.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no 0.0.0.0/0 sensitive port",
+      "fail_criteria": "0.0.0.0/0 open on sensitive port"
+    },
+    "default_severity": "High"
+  },
+  "V-109": {
+    "name": "IMDS abuse",
+    "category": "custom_script",
+    "tool": "imds_curl_probe",
+    "script": "V-109.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "IMDSv2 enforced/token required",
+      "fail_criteria": "IMDSv1 credentials retrieved"
+    },
+    "default_severity": "Critical"
+  },
+  "V-110": {
+    "name": "CSPM flaw",
+    "category": "tool_parsing",
+    "tool": "prowler",
+    "script": "V-110.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no failed CIS benchmark check",
+      "fail_criteria": "failed CIS benchmark control"
+    },
+    "default_severity": "Medium"
+  },
+  "V-113": {
+    "name": "Build secret exposure",
+    "category": "tool_parsing",
+    "tool": "trufflehog_cicd",
+    "script": "V-113.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no secret in CI/CD logs",
+      "fail_criteria": "secret found in pipeline logs/vars"
+    },
+    "default_severity": "Critical"
+  },
+  "V-114": {
+    "name": "Artifact/dependency poisoning",
+    "category": "tool_parsing",
+    "tool": "cosign+syft",
+    "script": "V-114.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "artifact signature verified",
+      "fail_criteria": "unsigned/tampered artifact accepted"
+    },
+    "default_severity": "High"
+  },
+  "V-118": {
+    "name": "JDWP exposure",
+    "category": "tool_parsing",
+    "tool": "nmap_jdwp",
+    "script": "V-118.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "JDWP port closed/auth required",
+      "fail_criteria": "JDWP exposed unauthenticated"
+    },
+    "default_severity": "Critical"
+  },
+  "V-119": {
+    "name": "Insecure IPC/exported component",
+    "category": "tool_parsing",
+    "tool": "drozer",
+    "script": "V-119.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "exported components require permission",
+      "fail_criteria": "exported component accessible w/o perm"
+    },
+    "default_severity": "High"
+  },
+  "V-122": {
+    "name": "Insecure local storage in client app",
+    "category": "tool_parsing",
+    "tool": "objection",
+    "script": "V-122.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "data encrypted/keychain-protected",
+      "fail_criteria": "plaintext sensitive data in storage"
+    },
+    "default_severity": "High"
+  },
+  "V-123": {
+    "name": "Lack of obfuscation/anti-tamper",
+    "category": "tool_parsing",
+    "tool": "jadx+apktool",
+    "script": "V-123.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "code obfuscated, tamper checks present",
+      "fail_criteria": "fully readable source, no integrity check"
+    },
+    "default_severity": "Low"
+  },
+  "V-126": {
+    "name": "ReDoS/algorithmic complexity DoS",
+    "category": "custom_script",
+    "tool": "crafted_input_probe",
+    "script": "V-126.sh",
+    "decision_rule": {
+      "method": "numeric_threshold",
+      "pass_criteria": "response time < 2s",
+      "fail_criteria": "catastrophic backtracking (>10s)"
+    },
+    "default_severity": "Medium"
+  },
+  "V-127": {
+    "name": "Missing rate limiting/brute force",
+    "category": "tool_parsing",
+    "tool": "hydra+intruder",
+    "script": "V-127.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "requests throttled/blocked after N attempts",
+      "fail_criteria": "unlimited attempts accepted"
+    },
+    "default_severity": "High"
+  },
+  "V-128": {
+    "name": "Prompt injection",
+    "category": "tool_parsing",
+    "tool": "garak",
+    "script": "V-128.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no successful injection probe",
+      "fail_criteria": "probe successfully overrides instructions"
+    },
+    "default_severity": "High"
+  },
+  "V-129": {
+    "name": "LLM jailbreak",
+    "category": "tool_parsing",
+    "tool": "garak",
+    "script": "V-129.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no successful jailbreak probe",
+      "fail_criteria": "probe bypasses safety guardrails"
+    },
+    "default_severity": "High"
+  },
+  "V-130": {
+    "name": "Sensitive data exposure via model output",
+    "category": "tool_parsing",
+    "tool": "garak",
+    "script": "V-130.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no PII/training data leaked",
+      "fail_criteria": "PII, memorized data leaked in output"
+    },
+    "default_severity": "High"
+  },
+  "V-132": {
+    "name": "Coverage-guided fuzzing",
+    "category": "tool_parsing",
+    "tool": "syzkaller",
+    "script": "V-132.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no new crash signature",
+      "fail_criteria": "new unique crash found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-133": {
+    "name": "Structure-aware syscall fuzzing",
+    "category": "tool_parsing",
+    "tool": "syzkaller",
+    "script": "V-133.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no new crash signature",
+      "fail_criteria": "new unique crash found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-134": {
+    "name": "Driver-targeted fuzzing",
+    "category": "tool_parsing",
+    "tool": "difuze",
+    "script": "V-134.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no driver crash",
+      "fail_criteria": "driver crash/panic triggered"
+    },
+    "default_severity": "High"
+  },
+  "V-135": {
+    "name": "KASAN crash triage",
+    "category": "tool_parsing",
+    "tool": "kasan",
+    "script": "V-135.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no KASAN report in dmesg",
+      "fail_criteria": "KASAN violation report present"
+    },
+    "default_severity": "Critical"
+  },
+  "V-136": {
+    "name": "UBSAN detection",
+    "category": "tool_parsing",
+    "tool": "ubsan",
+    "script": "V-136.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no UBSAN report",
+      "fail_criteria": "undefined behavior report present"
+    },
+    "default_severity": "Medium"
+  },
+  "V-137": {
+    "name": "Concurrency/data-race detection",
+    "category": "tool_parsing",
+    "tool": "kcsan+lockdep",
+    "script": "V-137.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no race/lockdep warning",
+      "fail_criteria": "data race, lock ordering violation"
+    },
+    "default_severity": "Medium"
+  },
+  "V-139": {
+    "name": "Runtime Verification",
+    "category": "tool_parsing",
+    "tool": "rv_framework",
+    "script": "V-139.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "all monitored properties held",
+      "fail_criteria": "property violation detected at runtime"
+    },
+    "default_severity": "Medium"
+  },
+  "V-140": {
+    "name": "LKMM formal analysis",
+    "category": "tool_parsing",
+    "tool": "lkmm",
+    "script": "V-140.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "memory model check passes",
+      "fail_criteria": "LKMM ordering violation found"
+    },
+    "default_severity": "Medium"
+  },
+  "V-141": {
+    "name": "eBPF verifier soundness",
+    "category": "tool_parsing",
+    "tool": "agni",
+    "script": "V-141.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "verifier soundness holds",
+      "fail_criteria": "verifier bypass/unsound accept found"
+    },
+    "default_severity": "Critical"
+  },
+  "V-142": {
+    "name": "Buffer overflow brute-force",
+    "category": "tool_parsing",
+    "tool": "bfbtester",
+    "script": "V-142.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no crash on boundary input",
+      "fail_criteria": "crash/overflow on boundary input"
+    },
+    "default_severity": "High"
+  },
+  "V-143": {
+    "name": "Static source auditing",
+    "category": "tool_parsing",
+    "tool": "flawfinder+cppcheck",
+    "script": "V-143.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no high-risk function flagged",
+      "fail_criteria": "high-risk/unsafe function flagged"
+    },
+    "default_severity": "Medium"
+  },
+  "V-144": {
+    "name": "Kernel hardening config audit",
+    "category": "tool_parsing",
+    "tool": "kernel-hardening-checker",
+    "script": "V-144.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "recommended hardening options set",
+      "fail_criteria": "recommended hardening options missing"
+    },
+    "default_severity": "Medium"
+  },
+  "V-145": {
+    "name": "NX/Exec-shield verification",
+    "category": "tool_parsing",
+    "tool": "checksec+paxtest",
+    "script": "V-145.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "NX/exec-shield enabled",
+      "fail_criteria": "NX/exec-shield disabled, bypassed"
+    },
+    "default_severity": "Medium"
+  },
+  "V-146": {
+    "name": "PaX/grsecurity bypass testing",
+    "category": "tool_parsing",
+    "tool": "paxtest",
+    "script": "V-146.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "all PaX tests killed as expected",
+      "fail_criteria": "PaX protection bypassed"
+    },
+    "default_severity": "High"
+  },
+  "V-149": {
+    "name": "Module/driver loading abuse",
+    "category": "custom_script",
+    "tool": "insmod_modprobe_probe",
+    "script": "V-149.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "unsigned module load rejected",
+      "fail_criteria": "unsigned/malicious module loaded"
+    },
+    "default_severity": "Critical"
+  },
+  "V-153": {
+    "name": "io_uring subsystem abuse",
+    "category": "tool_parsing",
+    "tool": "syzkaller_iouring",
+    "script": "V-153.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no io_uring crash/priv issue",
+      "fail_criteria": "io_uring crash, priv-esc found"
+    },
+    "default_severity": "High"
+  },
+  "V-155": {
+    "name": "Filesystem-layer corruption",
+    "category": "tool_parsing",
+    "tool": "hydra_fuzzer",
+    "script": "V-155.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no corruption on malformed FS input",
+      "fail_criteria": "filesystem corruption/crash induced"
+    },
+    "default_severity": "Medium"
+  },
+  "V-157": {
+    "name": "Live patch/hot-patch integrity",
+    "category": "custom_script",
+    "tool": "patch_sig_verify_probe",
+    "script": "V-157.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "patch signature verified before load",
+      "fail_criteria": "unsigned/tampered patch applied"
+    },
+    "default_severity": "Critical"
+  },
+  "V-158": {
+    "name": "Regression testing vs known CVEs",
+    "category": "tool_parsing",
+    "tool": "kernjc",
+    "script": "V-158.sh",
+    "decision_rule": {
+      "method": "grep_present",
+      "pass_criteria": "no regression of patched CVE",
+      "fail_criteria": "previously-patched CVE reproducible"
+    },
+    "default_severity": "High"
+  },
+  "jky_netforensics_extract_flows": {
+    "name": "Extract flow records from pcap",
+    "category": "tool_parsing",
+    "tool": "tshark+tcpdump+python3",
+    "script": "netforensics/jky_netforensics_extract_flows.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "flow CSV emitted with header row",
+      "fail_criteria": "tshark/tcpdump error or unreadable pcap"
+    },
+    "default_severity": "Low"
+  },
+  "jky_netforensics_extract_dns": {
+    "name": "Extract DNS records from pcap",
+    "category": "tool_parsing",
+    "tool": "tshark+tcpdump+python3",
+    "script": "netforensics/jky_netforensics_extract_dns.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "DNS CSV emitted with header row",
+      "fail_criteria": "tshark/tcpdump error or unreadable pcap"
+    },
+    "default_severity": "Low"
+  },
+  "jky_netforensics_extract_http": {
+    "name": "Extract HTTP records from pcap",
+    "category": "tool_parsing",
+    "tool": "tshark+tcpdump+python3",
+    "script": "netforensics/jky_netforensics_extract_http.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "HTTP CSV emitted with header row",
+      "fail_criteria": "tshark/tcpdump error or unreadable pcap"
+    },
+    "default_severity": "Low"
+  },
+  "jky_netforensics_top_talkers": {
+    "name": "Rank endpoint pairs by bytes",
+    "category": "custom_script",
+    "tool": "python3",
+    "script": "netforensics/jky_netforensics_top_talkers.sh",
+    "decision_rule": {
+      "method": "exit_code_zero",
+      "pass_criteria": "ranked endpoint table emitted",
+      "fail_criteria": "unreadable flows CSV or invalid top_n"
+    },
+    "default_severity": "Low"
+  },
+  "jky_netforensics_detect_beaconing": {
+    "name": "Flag periodic callback shapes",
+    "category": "custom_script",
+    "tool": "python3",
+    "script": "netforensics/jky_netforensics_detect_beaconing.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no PERIODIC verdicts",
+      "fail_criteria": "PERIODIC callback series detected"
+    },
+    "default_severity": "Medium"
+  },
+  "jky_netforensics_check_dns_anomalies": {
+    "name": "Flag DNS tunneling and DGA shapes",
+    "category": "custom_script",
+    "tool": "python3",
+    "script": "netforensics/jky_netforensics_check_dns_anomalies.sh",
+    "decision_rule": {
+      "method": "grep_absent",
+      "pass_criteria": "no SUSPECT verdicts",
+      "fail_criteria": "TUNNEL_SUSPECT or DGA_SUSPECT verdict present"
+    },
+    "default_severity": "Medium"
+  }
+}
