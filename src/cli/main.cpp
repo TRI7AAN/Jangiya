@@ -1,7 +1,12 @@
-// jocky CLI — Phase 1 skeleton.
+// jocky CLI — Phase 1 skeleton + Phase 3 `resolve`.
 // Usage: jocky check <file.jky>
-// Lexes, parses, and pretty-prints the AST. Exit 0 on success,
-// exit 1 on usage errors or lex/parse failures (diagnostics on stderr).
+//        jocky resolve <file.jky> [--registry <dir>]
+// `check` lexes, parses, and pretty-prints the AST (output frozen since
+// Phase 1 — do not change it; baselines in wiki/10 and wiki/11 depend on
+// it). `resolve` additionally runs the Phase 3 call resolver against the
+// registry index and prints each resolved call with its inferred type.
+// Exit 0 on success, exit 1 on usage errors or lex/parse/resolve
+// failures (diagnostics on stderr in file:line:col style).
 
 #include <fstream>
 #include <iostream>
@@ -11,6 +16,8 @@
 #include "jocky/ast/ast.hpp"
 #include "jocky/lexer/lexer.hpp"
 #include "jocky/parser/parser.hpp"
+#include "jocky/semantic/call_resolver.hpp"
+#include "jocky/stdlib/script_metadata.hpp"
 
 namespace {
 
@@ -272,36 +279,101 @@ void print_program(std::ostream& os, const jocky::Program& prog) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
-    if (argc != 3 || std::string(argv[1]) != "check") {
-        std::cerr << "usage: jocky check <file.jky>\n";
-        return 1;
+// Lex + parse; throws runtime_error (I/O), LexError, or ParseError.
+jocky::Program load_program(const std::string& path) {
+    const std::string source = read_file(path);
+    jocky::Lexer lexer(source);
+    std::vector<jocky::Token> tokens = lexer.tokenize();
+    jocky::Parser parser(std::move(tokens));
+    return parser.parse_program();
+}
+
+void print_resolved(const jocky::ResolvedProgram& resolved) {
+    for (const jocky::ResolvedCall& call : resolved.calls) {
+        std::cout << "RESOLVED call " << call.function << " -> "
+                  << jocky::type_to_string(call.result_type)
+                  << " [capability " << call.capability << "]\n";
+        for (const jocky::ResolvedArg& arg : call.args) {
+            std::cout << "  arg " << arg.name << ": " << arg.declared_type;
+            if (arg.used_default) {
+                std::cout << " = <default \"" << arg.default_value << "\">";
+            }
+            std::cout << "\n";
+        }
+        if (call.has_binding) {
+            std::cout << "BOUND " << call.binding << ": "
+                      << jocky::type_to_string(call.result_type) << "\n";
+        }
     }
-    const std::string path = argv[2];
-    std::string source;
-    try {
-        source = read_file(path);
-    } catch (const std::exception& ex) {
-        std::cerr << "error: " << ex.what() << "\n";
-        return 1;
+    if (resolved.calls.empty()) {
+        std::cout << "RESOLVED 0 calls\n";
     }
-    std::vector<jocky::Token> tokens;
+}
+
+int run_check(const std::string& path) {
     try {
-        jocky::Lexer lexer(source);
-        tokens = lexer.tokenize();
+        print_program(std::cout, load_program(path));
     } catch (const jocky::LexError& ex) {
         std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
                   << ": " << ex.what() << "\n";
         return 1;
+    } catch (const jocky::ParseError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    return 0;
+}
+
+int run_resolve(const std::string& path, const std::string& registry_dir) {
+    jocky::Program prog;
+    try {
+        prog = load_program(path);
+    } catch (const jocky::LexError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::ParseError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    jocky::ScanResult scanned = jocky::scan_registry_dir(registry_dir);
+    if (!scanned.rejections.empty()) {
+        for (const std::string& rejection : scanned.rejections) {
+            std::cerr << "REJECT " << rejection << "\n";
+        }
+        std::cerr << "error: cannot resolve against a rejected registry "
+                     "index (fix headers or rebuild the registry)\n";
+        return 1;
     }
     try {
-        jocky::Parser parser(std::move(tokens));
-        jocky::Program prog = parser.parse_program();
-        print_program(std::cout, prog);
-    } catch (const jocky::ParseError& ex) {
+        print_resolved(jocky::resolve_program(prog, scanned.registry));
+    } catch (const jocky::SemanticError& ex) {
         std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
                   << ": " << ex.what() << "\n";
         return 1;
     }
     return 0;
+}
+
+int main(int argc, char** argv) {
+    if (argc == 3 && std::string(argv[1]) == "check") {
+        return run_check(argv[2]);
+    }
+    if ((argc == 3 || (argc == 5 && std::string(argv[3]) == "--registry")) &&
+        std::string(argv[1]) == "resolve") {
+        const std::string registry =
+            (argc == 5) ? argv[4] : "stat_scripts/";
+        return run_resolve(argv[2], registry);
+    }
+    std::cerr << "usage: jocky check <file.jky>\n"
+                 "       jocky resolve <file.jky> [--registry <dir>]\n";
+    return 1;
 }

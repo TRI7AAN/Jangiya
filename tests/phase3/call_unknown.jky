@@ -1,0 +1,3 @@
+investigate t {
+  let x = call jky_netforensics_frob_widgets(pcap_path: "a.pcap");
+}

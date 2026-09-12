@@ -1,10 +1,13 @@
 #pragma once
 // JOCKY registry metadata — ScriptMetadata struct and scanner interface
-// (Phase 2). The scanner (src/stdlib/metadata_scanner.cpp) walks a
-// directory tree, parses `@jocky:` headers, validates them, and returns
-// a ScanResult. Field-for-field contract for the struct is fixed by the
-// Phase 2 session brief; validation rules mirror wiki/06-api-contracts.md
-// §4 with the documented reconciliations (see metadata_scanner.cpp).
+// (Phase 2; input defaults stored since Phase 3). The scanner
+// (src/stdlib/metadata_scanner.cpp) walks a directory tree, parses
+// `@jocky:` headers, validates them, and returns a ScanResult.
+// Field-for-field contract for the struct is fixed by the Phase 2
+// session brief as amended by the Phase 3 `= default` decision (see
+// wiki/06-api-contracts.md §4 and wiki/12-phase3-resolution.md);
+// validation rules mirror those docs with the documented
+// reconciliations (see metadata_scanner.cpp).
 
 #include <map>
 #include <string>
@@ -13,13 +16,24 @@
 
 namespace jocky {
 
+struct InputParam {
+    std::string name;
+    // Declared type with any `= default` suffix stripped.
+    std::string type;
+    // True when the header entry carried `= <default>` (Phase 3 `= default`
+    // decision: such inputs may be omitted at a call site, with
+    // default_value filling in). Quotes around the raw default are
+    // stripped; the stored value is the trimmed inner text.
+    bool has_default = false;
+    std::string default_value;
+};
+
 struct ScriptMetadata {
     std::string function;
     std::string domain;
     std::string description;
-    // Ordered (name, type) pairs; the "= default" suffix, if present in
-    // the header, is stripped from the stored type.
-    std::vector<std::pair<std::string, std::string>> inputs;
+    // Ordered inputs; see InputParam.
+    std::vector<InputParam> inputs;
     // The type part of `outputs <name>: <type>`; the whole value when no
     // colon is present (accepts both `table<flow>` and bare `csv` forms).
     std::string output_type;

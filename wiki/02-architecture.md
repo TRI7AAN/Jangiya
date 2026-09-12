@@ -7,7 +7,7 @@
   -> Lexer
   -> Parser (recursive descent)
   -> AST
-  -> Semantic / capability checker
+  -> Call resolver (Phase 3, built) + capability gate (Phase 4, current)
   -> Forensic IR (FIR)
   -> Policy validator
   -> Tree-shaking resolver
@@ -19,11 +19,16 @@
   front end. Tokenizes `.jky`, parses case/evidence/rule/investigation
   declarations plus `call` expressions into a typed AST. The CLI `check`
   command surfaces diagnostics without executing anything.
-- **Semantic / capability checker (Phase 4):** Type-checks pipelines,
-  rejects writes to declared evidence paths, enforces that every `call`
-  targets a known registry function with schema-validated arguments, and
-  verifies the case's `allowed_capabilities` cover every required
-  capability before execution is permitted.
+- **Call resolver (Phase 3, built):** `include/jocky/semantic/call_resolver.hpp`
+  resolves every `call` against the registry index — unknown functions,
+  arity (`= default` inputs stored and filled), and parse-level type
+  errors with `file:line:col` diagnostics — and plumbs each declared
+  output type into its `let` binding for downstream checking. Surfaced
+  via the `jocky resolve` command. Capability gating is NOT applied here.
+- **Capability gate (Phase 4, current):** Type-checks pipelines,
+  rejects writes to declared evidence paths, and verifies the case's
+  `allowed_capabilities` cover every resolved call's declared capability
+  before execution is permitted.
 - **Forensic IR — FIR (Phases 1–4):** The serializable, inspectable
   execution plan: investigation name, capabilities, inputs, operations,
   writes, and the prohibited list. FIR is what `plan` shows, what policy
@@ -55,33 +60,40 @@ manifest semantics — parity is a release requirement (Phase 8).
 | Output             | Standalone binary, no registry needed at run time | Direct execution, no compile step |
 | Manifest           | Identical schema and hash semantics         | Identical schema and hash semantics |
 
-Supporting commands: `jocky verify <manifest.json>` re-hashes
+Supporting commands: `jocky check <file.jky>` parses and prints the AST
+without executing anything; `jocky resolve <file.jky>` additionally
+resolves every `call` against the registry (Phase 3, no capability
+gate); `jocky verify <manifest.json>` re-hashes
 inputs/outputs and checks the manifest; `scan_registry <dir>` rebuilds the
 registry index from `@jocky:` headers.
 
-## 3. Stdlib Subsystem: 47 Registry Functions and Growing
+## 3. Stdlib Subsystem: 48 Registry Functions and Growing
 
 The standard library is not C++ — it is a curated corpus of shell
 scripts under `stat_scripts/`, organized by domain (`recon/` 10,
 `compliance/` 24, `hostforensics/` 7, `netforensics/` 6, plus
-`shared/` helpers): 41 curated Kalki functions renamed to
-`jky_<domain>_<verb>_<object>.sh` in Phase 1 plus 6 greenfield
-netforensics functions written directly in registry form. Seven
+`shared/` with the testssl wrapper and the vendored `testssl.sh` it
+drives): 41 curated Kalki functions renamed to
+`jky_<domain>_<verb>_<object>.sh` in Phase 1, 6 greenfield
+netforensics functions written directly in registry form, and 1
+`shared/` wrapper (`jky_shared_run_testssl.sh`, registered as
+`jky_compliance_run_testssl`). Seven
 functions carry complete headers today (the 6 netforensics functions
 plus the `shared/` testssl wrapper); the 41 curated functions are
 header-annotated in Phase 9. `scan_registry` (built, Phase 2) indexes
 headers, rejects malformed ones, and skips headerless files without
-error — current verified state: 7 registered / 0 rejected.
+error — current verified state: 7 registered / 0 rejected / 42 skipped
+(49 files total: 48 `jky_` scripts + vendored `testssl.sh`).
 
 ```sh
 # @jocky:function jky_netforensics_extract_flows
 # @jocky:domain netforensics
-# @jocky:description Extract flow records from a pcap slice
-# @jocky:inputs pcap_path: path, bpf: string = ""
+# @jocky:description Extract L3/L4 flow records from a pcap file into CSV
+# @jocky:inputs pcap_path: path, bpf: string = "", out_csv: path = ""
 # @jocky:outputs flows: table<flow>
 # @jocky:capability netforensics.pcap.read
-# @jocky:timeout_seconds 120
-# @jocky:depends_on jky_recon_check_tool
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 ```
 
 Header fields: function name (must match `jky_<domain>_<verb>_<object>`,

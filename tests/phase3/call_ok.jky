@@ -1,0 +1,3 @@
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "evidence/capture.pcap", bpf: "tcp port 443", out_csv: "out/flows.csv");
+}

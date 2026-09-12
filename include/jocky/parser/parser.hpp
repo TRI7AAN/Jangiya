@@ -273,9 +273,12 @@ private:
     std::unique_ptr<ExprValue> parse_expr_value() {
         auto value = std::make_unique<ExprValue>();
         if (check_keyword("call")) {
+            const Token call_kw = peek();
             advance();
             value->kind = ExprValue::Kind::Call;
             value->call = parse_call();
+            value->call->line = call_kw.line;
+            value->call->col = call_kw.col;
             return value;
         }
         if (check_keyword("correlate")) {
@@ -356,7 +359,10 @@ private:
 
     CallExpr::NamedArg parse_named_arg() {
         CallExpr::NamedArg arg;
+        const Token name_tok = peek();
         arg.name = expect_ident("argument name");
+        arg.line = name_tok.line;
+        arg.col = name_tok.col;
         expect_symbol(":");
         arg.value = parse_expr_value();
         return arg;
@@ -448,10 +454,13 @@ private:
 
     std::unique_ptr<ExprValue> parse_operand() {
         if (check_keyword("call")) {
+            const Token call_kw = peek();
             advance();
             auto value = std::make_unique<ExprValue>();
             value->kind = ExprValue::Kind::Call;
             value->call = parse_call();
+            value->call->line = call_kw.line;
+            value->call->col = call_kw.col;
             return value;
         }
         if (peek().kind == TokenKind::Identifier) {

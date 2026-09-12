@@ -8,6 +8,8 @@ network APIs. JOCKY has no network surface.
 ```text
 jockyc <file.jky> [-o output] [--list-used]
 jocky <file.jky>
+jocky check <file.jky>
+jocky resolve <file.jky> [--registry <dir>]
 jocky verify <manifest.json>
 scan_registry <dir>
 ```
@@ -16,6 +18,7 @@ scan_registry <dir>
 | ------- | -------- |
 | `jockyc <file.jky> [-o output] [--list-used]` | Compile: parse, check, resolve the tree-shaken script closure, embed it, link to a standalone binary at `output` (default `./a.out`). `--list-used` prints the resolved function list and exits without linking. |
 | `jocky <file.jky>` | Interpret: same front end and checks, but execute directly against the filesystem registry with no compile step. Manifest semantics identical to the compiled path (parity). Also supports `jocky check <file.jky>` (parse + check only) for the demo's first beat. |
+| `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here (Phase 4). |
 | `jocky verify <manifest.json>` | Re-hash declared inputs/outputs, re-check per-execution entries, report PASS/FAIL. Reads only the manifest and referenced artifacts; never executes scripts. |
 | `scan_registry <dir>` | Walk `<dir>` for `@jocky:` headers, build (or rebuild) the registry index, report indexed functions and header errors. |
 
@@ -107,7 +110,7 @@ Every stdlib/registry shell script carries this header (see
 | `function` | yes | Callable name; must match `jky_<domain>_<verb>_<object>` |
 | `domain` | yes | Exactly one of `recon`, `netforensics`, `hostforensics`, `timeline`, `compliance`, `report` |
 | `description` | yes | One-line human description |
-| `inputs` | yes | Typed arg list, e.g. `pcap_path: path, bpf: string = ""` |
+| `inputs` | yes | Typed arg list, e.g. `pcap_path: path, bpf: string = ""`. An entry may carry `= <default>` (Phase 3 decision, see `wiki/12-phase3-resolution.md` §1): the scanner stores the default on `InputParam` (`type` kept default-free), validates it against the declared type, and rejects empty or mistyped defaults. Call sites may omit defaulted inputs. The JSON index emits per input `{"name","type","has_default":bool,"default":"..."}`. |
 | `outputs` | yes | Typed results, e.g. `flows: table<flow>` |
 | `capability` | yes | Required capability, e.g. `netforensics.pcap.read` |
 | `timeout_seconds` | yes | Sandbox timeout (positive int) |

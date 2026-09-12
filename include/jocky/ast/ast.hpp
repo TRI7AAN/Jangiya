@@ -55,13 +55,20 @@ struct ExprValue {
 };
 
 // A registry-function invocation: `call a.b.c(x: <expr>, ...)`.
+// line/col locate the `call` keyword (Phase 3: semantic errors reuse the
+// lexer's file:line:col diagnostic style); each NamedArg carries the
+// position of its argument name for arity/type errors.
 struct CallExpr {
     struct NamedArg {
         std::string name;
         std::unique_ptr<ExprValue> value;
+        int line = 0;
+        int col = 0;
     };
     std::vector<std::string> function;
     std::vector<NamedArg> args;
+    int line = 0;
+    int col = 0;
 };
 
 // A boolean predicate over rows (`filter`/`where`/`having`).

@@ -2,8 +2,13 @@
 //
 // Header contract (wiki/06-api-contracts.md §4) with reconciliations:
 //   - inputs entries are `name: type` with an optional `= default`
-//     suffix; the stored type drops the default (arity checking in
-//     Phase 3 re-derives optionality from the raw header if needed).
+//     suffix (Phase 3 decision: the default is STORED on InputParam, not
+//     dropped — call sites may omit defaulted inputs, and the scanner
+//     validates the default against the declared type at scan time).
+//     A present-but-empty default (`name: type =`) is a rejection.
+//     One pair of surrounding double quotes is stripped from the stored
+//     default (`bpf: string = ""` stores an empty default, which still
+//     counts as defaulted).
 //   - outputs is `name: type`; only the type part is stored in
 //     output_type. A bare value without a colon (e.g. `csv`) is stored
 //     whole, so both the typed (`table<flow>`) and format (`json|csv|
@@ -174,6 +179,71 @@ std::string json_escape(const std::string& text) {
         }
     }
     return out;
+}
+
+// Phase 3: does a stored `= default` value satisfy its declared input
+// type? string/path accept anything (paths travel as string literals);
+// int wants an optional sign plus digits; float accepts that plus a
+// decimal/exponent form; bool wants exactly true/false. Unknown type
+// names never match, so undeclared input types are rejected at scan
+// time rather than surfacing in the resolver.
+bool default_matches_type(const std::string& value, const std::string& type) {
+    if (type == "string" || type == "path") {
+        return true;
+    }
+    if (type == "bool") {
+        return value == "true" || value == "false";
+    }
+    if (type != "int" && type != "float") {
+        return false;
+    }
+    std::size_t i = 0;
+    if (i < value.size() && (value[i] == '+' || value[i] == '-')) {
+        ++i;
+    }
+    bool digits_before = false;
+    while (i < value.size() &&
+           std::isdigit(static_cast<unsigned char>(value[i]))) {
+        ++i;
+        digits_before = true;
+    }
+    if (!digits_before) {
+        return false;
+    }
+    if (i == value.size()) {
+        return true;  // plain integer form; also valid for float
+    }
+    if (type == "int") {
+        return false;
+    }
+    if (value[i] == '.') {  // fractional part
+        ++i;
+        bool digits_after = false;
+        while (i < value.size() &&
+               std::isdigit(static_cast<unsigned char>(value[i]))) {
+            ++i;
+            digits_after = true;
+        }
+        if (!digits_after) {
+            return false;
+        }
+    }
+    if (i < value.size() && (value[i] == 'e' || value[i] == 'E')) {
+        ++i;
+        if (i < value.size() && (value[i] == '+' || value[i] == '-')) {
+            ++i;
+        }
+        bool digits_exp = false;
+        while (i < value.size() &&
+               std::isdigit(static_cast<unsigned char>(value[i]))) {
+            ++i;
+            digits_exp = true;
+        }
+        if (!digits_exp) {
+            return false;
+        }
+    }
+    return i == value.size();
 }
 
 struct ParsedFile {
@@ -373,9 +443,28 @@ ScanResult scan_registry_dir(const std::string& root) {
             }
             std::string name = trim(item.substr(0, colon));
             std::string type = trim(item.substr(colon + 1));
+            // Phase 3 `= default` decision: split off and STORE the
+            // default instead of dropping it (see script_metadata.hpp).
+            InputParam param;
             const std::size_t eq = type.find('=');
             if (eq != std::string::npos) {
+                std::string raw_default = trim(type.substr(eq + 1));
                 type = trim(type.substr(0, eq));
+                if (raw_default.empty()) {
+                    result.rejections.push_back(
+                        file.path + ": empty default for input '" + name +
+                        "' (write `name: type` with no `=` when there is " +
+                        "no default)");
+                    inputs_ok = false;
+                    break;
+                }
+                if (raw_default.size() >= 2 &&
+                    raw_default.front() == '"' && raw_default.back() == '"') {
+                    raw_default =
+                        raw_default.substr(1, raw_default.size() - 2);
+                }
+                param.has_default = true;
+                param.default_value = raw_default;
             }
             if (name.empty() || type.empty()) {
                 result.rejections.push_back(
@@ -383,7 +472,20 @@ ScanResult scan_registry_dir(const std::string& root) {
                 inputs_ok = false;
                 break;
             }
-            meta.inputs.emplace_back(name, type);
+            param.name = name;
+            param.type = type;
+            // The default must itself satisfy the declared type, else the
+            // header promises a value the script may not accept.
+            if (param.has_default &&
+                !default_matches_type(param.default_value, param.type)) {
+                result.rejections.push_back(
+                    file.path + ": default '" + param.default_value +
+                    "' for input '" + name + "' does not match declared " +
+                    "type '" + type + "'");
+                inputs_ok = false;
+                break;
+            }
+            meta.inputs.push_back(std::move(param));
         }
         if (!inputs_ok) {
             continue;
@@ -473,8 +575,12 @@ std::string registry_to_json(const ScanResult& result) {
                 out += ",";
             }
             first_in = false;
-            out += "{\"name\":\"" + json_escape(input.first) +
-                   "\",\"type\":\"" + json_escape(input.second) + "\"}";
+            out += "{\"name\":\"" + json_escape(input.name) +
+                   "\",\"type\":\"" + json_escape(input.type) + "\"" +
+                   ",\"has_default\":" +
+                   (input.has_default ? "true" : "false") +
+                   ",\"default\":\"" + json_escape(input.default_value) +
+                   "\"}";
         }
         out += "]";
         out += ",\"output_type\":\"" + json_escape(meta.output_type) + "\"";

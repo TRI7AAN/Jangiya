@@ -16,3 +16,5 @@ updating the relevant wiki doc.
 | [08-ps-analysis.md](08-ps-analysis.md) | Full-text SIH26148 analysis: background/description/expected-solution dissection, per-technique research capsules, D3FEND/CERT-In/DPDP closings, draft gap-check matrix, harvested changes, and the graded residual backlog. |
 | [09-kalki-inventory.md](09-kalki-inventory.md) | Phase 1 audit and registry bootstrap: script triage, src/ verdict, prune/rename/netforensics/quarantine records, and Phase 2 handoff. |
 | [10-phase1-verification.md](10-phase1-verification.md) | Read-only Phase 1 checkpoint: build evidence, src/ confirmation, count reconciliation, domain/naming audits, root-file inspection, wiki drift check. |
+| [11-phase2-drift-check.md](11-phase2-drift-check.md) | Read-only Phase 2 drift checkpoint: build/AST/registry/quarantine/git/grammar re-verification with first quarantine SHA-256 baseline. |
+| [12-phase3-resolution.md](12-phase3-resolution.md) | Phase 3 record: `= default` decision, call resolver rules, six fixture runs verbatim, scanner default-validation checks, regression evidence. |

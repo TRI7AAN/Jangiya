@@ -1,0 +1,3 @@
+investigate t {
+  let r = call jky_netforensics_top_talkers(flows_csv: "f.csv", top_n: "ten");
+}

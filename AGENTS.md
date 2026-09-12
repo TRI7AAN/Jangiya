@@ -88,3 +88,11 @@ documentation. Violation of any rule is a stop-work event: halt, log it in
 4. Do the work for the current phase. Nothing more.
 5. Append a row to `logs.md` when done (`| Date | Phase | Session summary |
    Files touched | Status |`). Never skip logging.
+6. Persist computed evidence in a wiki file when it is computed. Any hash,
+   digest, or count produced during a session MUST be written into a `wiki/`
+   file at the time it is computed, not only stated in the session's final
+   summary. A claim without a persisted, checkable artifact is not valid
+   evidence for later sessions. (This rule exists because the Phase 2
+   quarantine digest claim could not be verified at the Phase 2 drift
+   checkpoint — no digests had been recorded, so there was nothing to
+   compare against.)
