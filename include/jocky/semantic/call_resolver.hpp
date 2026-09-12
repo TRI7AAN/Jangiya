@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "jocky/ast/ast.hpp"
+#include "jocky/ast/walker.hpp"
 #include "jocky/stdlib/script_metadata.hpp"
 
 namespace jocky {
@@ -296,74 +297,22 @@ struct ResolvedProgram {
 
 namespace detail {
 
-inline void resolve_value(const ExprValue& value,
-                          const std::vector<ScriptMetadata>& registry,
-                          ResolvedProgram& out);
-
-inline void resolve_predicate(const Predicate& pred,
-                              const std::vector<ScriptMetadata>& registry,
-                              ResolvedProgram& out) {
-    switch (pred.kind) {
-        case Predicate::Kind::Or:
-        case Predicate::Kind::And:
-            for (const auto& operand : pred.operands) {
-                resolve_predicate(*operand, registry, out);
-            }
-            break;
-        case Predicate::Kind::Not:
-            resolve_predicate(*pred.inner, registry, out);
-            break;
-        case Predicate::Kind::Compare:
-            resolve_value(*pred.left, registry, out);
-            resolve_value(*pred.right, registry, out);
-            break;
-        case Predicate::Kind::Atom:
-            resolve_value(*pred.atom, registry, out);
-            break;
-    }
-}
-
-inline void resolve_value(const ExprValue& value,
-                          const std::vector<ScriptMetadata>& registry,
-                          ResolvedProgram& out) {
-    switch (value.kind) {
-        case ExprValue::Kind::Call: {
-            ResolvedCall call = resolve_call(*value.call, registry);
-            out.calls.push_back(std::move(call));
-            break;
-        }
-        case ExprValue::Kind::List:
-            for (const auto& item : value.list) {
-                resolve_value(*item, registry, out);
-            }
-            break;
-        default: break;
-    }
-}
-
-inline void resolve_op(const PipelineOp& op,
-                       const std::vector<ScriptMetadata>& registry,
-                       ResolvedProgram& out) {
-    switch (op.kind) {
-        case PipelineOp::Kind::Filter:
-        case PipelineOp::Kind::Where:
-        case PipelineOp::Kind::Having:
-            resolve_predicate(*op.predicate, registry, out);
-            break;
-        case PipelineOp::Kind::Correlate: break;
-        default: break;
-    }
-}
+// Single traversal lives in ast/walker.hpp (the ONLY place that knows
+// how to find every CallExpr — pipeline heads, predicate operands,
+// lists, and If/For/While bodies at any depth). These wrappers resolve
+// each found call and preserve the return-type plumbing: the FIRST call
+// collected from a pipeline statement is its head call, so binding
+// attachment keeps its exact Phase 3 semantics.
 
 inline void resolve_stmt(const PipelineStmt& stmt, const std::string& scope,
                          const std::vector<ScriptMetadata>& registry,
                          ResolvedProgram& out) {
     (void)scope;
     const std::size_t before = out.calls.size();
-    resolve_value(*stmt.expr.head, registry, out);
-    for (const PipelineStep& step : stmt.expr.steps) {
-        resolve_op(step.op, registry, out);
-    }
+    walker::for_each_call_in_pipeline(
+        stmt.expr, [&](const CallExpr& found) {
+            out.calls.push_back(resolve_call(found, registry));
+        });
     // Attach the head call's result type to its `let` binding: this is
     // the return-type plumbing future phases check pipelines against.
     if (stmt.has_binding && out.calls.size() > before &&
@@ -375,6 +324,19 @@ inline void resolve_stmt(const PipelineStmt& stmt, const std::string& scope,
     }
 }
 
+inline void resolve_block(const Block& block, const std::string& scope,
+                          const std::vector<ScriptMetadata>& registry,
+                          ResolvedProgram& out) {
+    // One static presence per enclosed call regardless of trip count or
+    // taken branch; binding plumbing for lets inside control flow works
+    // exactly as at top level because every PipelineStmt still flows
+    // through resolve_stmt.
+    walker::for_each_pipeline_stmt_in_block(
+        block, [&](const PipelineStmt& pipe) {
+            resolve_stmt(pipe, scope, registry, out);
+        });
+}
+
 }  // namespace detail
 
 // Resolve every call in all rules and investigations of a program.
@@ -382,15 +344,11 @@ inline ResolvedProgram resolve_program(
     const Program& prog, const std::vector<ScriptMetadata>& registry) {
     ResolvedProgram out;
     for (const RuleDecl& rule : prog.rules) {
-        for (const PipelineStmt& stmt : rule.body) {
-            detail::resolve_stmt(stmt, "rule " + rule.name, registry, out);
-        }
+        detail::resolve_block(rule.body, "rule " + rule.name, registry, out);
     }
     for (const InvestigationDecl& inv : prog.investigations) {
-        for (const PipelineStmt& stmt : inv.body) {
-            detail::resolve_stmt(stmt, "investigate " + inv.name, registry,
-                                 out);
-        }
+        detail::resolve_block(inv.body, "investigate " + inv.name, registry,
+                              out);
     }
     return out;
 }

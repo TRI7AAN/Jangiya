@@ -1,23 +1,33 @@
-// jocky CLI — Phase 1 skeleton + Phase 3 `resolve` + Phase 4 `gate`.
+// jocky CLI — Phase 1 skeleton + Phase 3 `resolve` + Phase 4 `gate`
+// + Phase 5 `shake`.
 // Usage: jocky check <file.jky>
 //        jocky resolve <file.jky> [--registry <dir>]
 //        jocky gate <file.jky> [--registry <dir>]
+//        jocky shake <file.jky> [--registry <dir>]
 // `check` lexes, parses, and pretty-prints the AST (output frozen since
 // Phase 1 — do not change it; baselines in wiki/10, wiki/11, and wiki/14
 // depend on it). `resolve` additionally runs the Phase 3 call resolver
 // against the registry index and prints each resolved call with its
 // inferred type. `gate` runs the full Phase 4 chain (resolve → bind →
-// gate) and prints the authorization verdict. Exit 0 on success, exit 1
-// on usage errors or lex/parse/resolve/bind/gate failures (diagnostics on
-// stderr in file:line:col style).
+// gate) and prints the authorization verdict. `shake` runs the full
+// Phase 5 chain (resolve → bind → gate → shake) and prints the
+// dependency-ordered used-script list. `check` is parse-only and never
+// runs semantic passes; `resolve`, `gate`, and `shake` run resolution
+// then the Phase 5.5 for-bound check before binding/gating/shaking.
+// Exit 0 on success, exit 1
+// on usage errors or lex/parse/resolve/bound/bind/gate/shake failures
+// (diagnostics on stderr in file:line:col style).
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <variant>
 
 #include "jocky/ast/ast.hpp"
+#include "jocky/fir/script_resolver.hpp"
 #include "jocky/lexer/lexer.hpp"
+#include "jocky/semantic/bound_checker.hpp"
 #include "jocky/parser/parser.hpp"
 #include "jocky/policy/capability_gate.hpp"
 #include "jocky/semantic/call_resolver.hpp"
@@ -229,7 +239,8 @@ void print_type(std::ostream& os, const jocky::TypeRef& type) {
     }
 }
 
-void print_stmt(std::ostream& os, const jocky::PipelineStmt& stmt, int depth) {
+void print_pipeline_stmt(std::ostream& os, const jocky::PipelineStmt& stmt,
+                         int depth) {
     indent(os, depth);
     if (stmt.has_binding) {
         os << "let " << stmt.binding << " = ";
@@ -240,6 +251,67 @@ void print_stmt(std::ostream& os, const jocky::PipelineStmt& stmt, int depth) {
         print_op(os, step.op);
     }
     os << ";\n";
+}
+
+void print_stmt(std::ostream& os, const jocky::Stmt& stmt, int depth);
+
+void print_block(std::ostream& os, const jocky::Block& block, int depth) {
+    os << "{\n";
+    for (const auto& stmt : block) {
+        print_stmt(os, stmt, depth + 1);
+    }
+    indent(os, depth);
+    os << "}";
+}
+
+void print_bound(std::ostream& os, const jocky::BoundExpr& bound) {
+    switch (bound.kind) {
+        case jocky::BoundExpr::Kind::Literal: os << bound.literal; break;
+        case jocky::BoundExpr::Kind::Ident: os << bound.ident; break;
+        case jocky::BoundExpr::Kind::Count:
+            os << "count(" << bound.ident << ")";
+            break;
+    }
+}
+
+void print_stmt(std::ostream& os, const jocky::Stmt& stmt, int depth) {
+    if (const auto* pipe =
+            std::get_if<jocky::PipelineStmt>(&stmt.node)) {
+        print_pipeline_stmt(os, *pipe, depth);
+        return;
+    }
+    if (const auto* branch = std::get_if<jocky::IfStmt>(&stmt.node)) {
+        indent(os, depth);
+        os << "if (";
+        print_predicate(os, branch->cond);
+        os << ") ";
+        print_block(os, branch->then_block, depth);
+        if (branch->else_block.has_value()) {
+            os << " else ";
+            print_block(os, *branch->else_block, depth);
+        }
+        os << "\n";
+        return;
+    }
+    if (const auto* loop = std::get_if<jocky::ForStmt>(&stmt.node)) {
+        indent(os, depth);
+        os << "for (int " << loop->loop_var << " = " << loop->start << "; "
+           << loop->loop_var << " < ";
+        print_bound(os, loop->bound);
+        os << "; " << loop->loop_var << "++) ";
+        print_block(os, loop->body, depth);
+        os << "\n";
+        return;
+    }
+    if (const auto* loop = std::get_if<jocky::WhileStmt>(&stmt.node)) {
+        indent(os, depth);
+        os << "while (";
+        print_predicate(os, loop->cond);
+        os << ") [requires_runtime_ceiling] ";
+        print_block(os, loop->body, depth);
+        os << "\n";
+        return;
+    }
 }
 
 void print_program(std::ostream& os, const jocky::Program& prog) {
@@ -359,10 +431,21 @@ int run_resolve(const std::string& path, const std::string& registry_dir) {
         return 1;
     }
     try {
-        print_resolved(jocky::resolve_program(prog, scanned.registry));
+        jocky::ResolvedProgram resolved =
+            jocky::resolve_program(prog, scanned.registry);
+        // Bound check runs AFTER resolution (a bad bound may reference a
+        // call result, so unknown-function errors keep precedence) and
+        // BEFORE any binding/gating. `check` stays parse-only and never
+        // runs this pass.
+        jocky::check_bounds(prog);
+        print_resolved(resolved);
     } catch (const jocky::SemanticError& ex) {
         std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
                   << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::BoundCheckError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << " (bound check)\n";
         return 1;
     }
     return 0;
@@ -419,6 +502,7 @@ int run_gate(const std::string& path, const std::string& registry_dir) {
     try {
         jocky::ResolvedProgram resolved =
             jocky::resolve_program(prog, scanned.registry);
+        jocky::check_bounds(prog);
         jocky::BoundProgram bound =
             jocky::bind_program(prog, std::move(resolved));
         jocky::GateResult gate = jocky::check_gate(bound);
@@ -427,6 +511,10 @@ int run_gate(const std::string& path, const std::string& registry_dir) {
     } catch (const jocky::SemanticError& ex) {
         std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
                   << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::BoundCheckError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << " (bound check)\n";
         return 1;
     } catch (const jocky::BindingError& ex) {
         // Binder failures are program-level (line/col 0: no single token
@@ -441,6 +529,87 @@ int run_gate(const std::string& path, const std::string& registry_dir) {
         }
         return 1;
     }
+}
+
+void print_shaken(const jocky::ShakeResult& shaken) {
+    std::cout << "SHAKEN: " << shaken.scripts.size()
+              << " scripts in dependency order\n";
+    for (const jocky::ResolvedScript& script : shaken.scripts) {
+        std::cout << "  " << script.metadata.function << " ("
+                  << script.metadata.script_path << ") [" << script.reason
+                  << "]\n";
+    }
+}
+
+int run_shake(const std::string& path, const std::string& registry_dir) {
+    jocky::Program prog;
+    try {
+        prog = load_program(path);
+    } catch (const jocky::LexError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::ParseError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    jocky::ScanResult scanned = jocky::scan_registry_dir(registry_dir);
+    if (!scanned.rejections.empty()) {
+        for (const std::string& rejection : scanned.rejections) {
+            std::cerr << "REJECT " << rejection << "\n";
+        }
+        std::cerr << "error: cannot shake against a rejected registry "
+                     "index (fix headers or rebuild the registry)\n";
+        return 1;
+    }
+    try {
+        jocky::ResolvedProgram resolved =
+            jocky::resolve_program(prog, scanned.registry);
+        jocky::check_bounds(prog);
+        jocky::BoundProgram bound =
+            jocky::bind_program(prog, std::move(resolved));
+        jocky::GateResult gate = jocky::check_gate(bound);
+        if (!gate.allowed) {
+            // Same verdict format as `jocky gate`: shake never runs on a
+            // denied gate (fail-closed), and the denial is the error.
+            print_gate(path, gate);
+            return 1;
+        }
+        print_shaken(jocky::resolve_scripts(gate, scanned.registry));
+    } catch (const jocky::SemanticError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::BoundCheckError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << " (bound check)\n";
+        return 1;
+    } catch (const jocky::BindingError& ex) {
+        if (ex.line > 0) {
+            std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                      << ": " << ex.what() << " (case binding)\n";
+        } else {
+            std::cerr << "error: " << path << ": " << ex.what()
+                      << " (case binding)\n";
+        }
+        return 1;
+    } catch (const jocky::ShakeError& ex) {
+        // Shake failures are registry-level (line/col 0) — tagged
+        // "(shake)" so the failing stage reads off the output.
+        if (ex.line > 0) {
+            std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                      << ": " << ex.what() << " (shake)\n";
+        } else {
+            std::cerr << "error: " << path << ": " << ex.what()
+                      << " (shake)\n";
+        }
+        return 1;
+    }
+    return 0;
 }
 
 int main(int argc, char** argv) {
@@ -459,8 +628,15 @@ int main(int argc, char** argv) {
             (argc == 5) ? argv[4] : "stat_scripts/";
         return run_gate(argv[2], registry);
     }
+    if ((argc == 3 || (argc == 5 && std::string(argv[3]) == "--registry")) &&
+        std::string(argv[1]) == "shake") {
+        const std::string registry =
+            (argc == 5) ? argv[4] : "stat_scripts/";
+        return run_shake(argv[2], registry);
+    }
     std::cerr << "usage: jocky check <file.jky>\n"
                  "       jocky resolve <file.jky> [--registry <dir>]\n"
-                 "       jocky gate <file.jky> [--registry <dir>]\n";
+                 "       jocky gate <file.jky> [--registry <dir>]\n"
+                 "       jocky shake <file.jky> [--registry <dir>]\n";
     return 1;
 }

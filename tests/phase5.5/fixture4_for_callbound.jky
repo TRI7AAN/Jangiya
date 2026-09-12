@@ -1,0 +1,13 @@
+# Fixture 4: for(int i=0; i<r; i++) where r comes from a prior call's
+# return value — NOT one of the three allowed bound forms. Must FAIL at
+# the bound_checker with an error naming 'r' (resolve itself succeeds).
+case t {
+  allowed_capabilities: ["netforensics.pcap.read", "netforensics.flow.analyze"];
+}
+investigate t {
+  let r = call jky_netforensics_top_talkers(flows_csv: "f.csv");
+  for (int i = 0; i < r; i++) {
+    let f = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+    f | emit fin;
+  }
+}

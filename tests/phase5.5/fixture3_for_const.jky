@@ -1,0 +1,13 @@
+# Fixture 3: for(int i=0; i<N; i++) where N is an integer let-binding
+# declared before the loop — an allowed bound form. Must pass the
+# bound_checker and gate cleanly.
+case t {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  let N = 5;
+  for (int i = 0; i < N; i++) {
+    let f = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+    f | emit fin;
+  }
+}

@@ -1,0 +1,12 @@
+# Fixture 2: for(int i=0; i<5; i++) with a literal bound, one call
+# inside. Must resolve/gate/shake correctly with the call present ONCE
+# for static purposes (shake cares which functions, not invocations).
+case t {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  for (int i = 0; i < 5; i++) {
+    let f = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+    f | emit fin;
+  }
+}

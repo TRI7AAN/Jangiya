@@ -1,0 +1,8 @@
+# Fixture 1 (direct only): program calls pair_top, which depends_on
+# pair_leaf (leaf). Shake must resolve exactly {leaf, top}, leaf first.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let r = call jky_recon_pair_top();
+}

@@ -181,9 +181,20 @@ private:
     }
 
     // type := ident ["<" type {"," type} ">"]
+    // (Phase 5.5 took `int` explicitly; Phase 6 generalizes: since the
+    // full C/C++/Java sets are reserved keywords, ANY keyword is accepted
+    // as a type name here — type position is unambiguous, so e.g.
+    // `flag: bool` and `x: float` keep parsing exactly as before, and no
+    // future keyword can ever break a type annotation.)
     TypeRef parse_type() {
         TypeRef type;
-        type.name = expect_ident("type name");
+        if (peek().kind == TokenKind::Identifier ||
+            peek().kind == TokenKind::Keyword) {
+            type.name = peek().lexeme;
+            advance();
+        } else {
+            fail("expected type name, found '" + peek().lexeme + "'");
+        }
         if (match_symbol("<")) {
             type.args.push_back(parse_type());
             while (match_symbol(",")) {
@@ -195,8 +206,9 @@ private:
     }
 
     // block := "{" { stmt } "}"
-    std::vector<PipelineStmt> parse_block() {
-        std::vector<PipelineStmt> body;
+    // stmt := if_stmt | for_stmt | while_stmt | pipeline_stmt
+    Block parse_block() {
+        Block body;
         expect_symbol("{");
         while (!check_symbol("}")) {
             if (check(TokenKind::EndOfFile)) {
@@ -206,6 +218,139 @@ private:
         }
         expect_symbol("}");
         return body;
+    }
+
+    // Dispatch on leading keyword; anything else is a pipeline statement.
+    Stmt parse_stmt() {
+        if (check_keyword("if")) {
+            Stmt stmt;
+            stmt.node = parse_if_stmt();
+            return stmt;
+        }
+        if (check_keyword("for")) {
+            Stmt stmt;
+            stmt.node = parse_for_stmt();
+            return stmt;
+        }
+        if (check_keyword("while")) {
+            Stmt stmt;
+            stmt.node = parse_while_stmt();
+            return stmt;
+        }
+        Stmt stmt;
+        stmt.node = parse_pipeline_stmt();
+        return stmt;
+    }
+
+    // if_stmt := "if" "(" predicate ")" block ["else" block]
+    IfStmt parse_if_stmt() {
+        expect_keyword("if");
+        expect_symbol("(");
+        IfStmt stmt;
+        stmt.cond = std::move(*parse_predicate());
+        expect_symbol(")");
+        stmt.then_block = parse_block();
+        if (match_keyword("else")) {
+            stmt.else_block = parse_block();
+        }
+        return stmt;
+    }
+
+    // for_stmt := "for" "(" "int" ident "=" int ";" ident "<" bound_expr
+    //              ";" ident "++" ")" block
+    // C-style shape for familiarity; the init/condition/increment variable
+    // names must all match (shape check here — bound SAFETY is judged by
+    // bound_checker, not the parser).
+    ForStmt parse_for_stmt() {
+        expect_keyword("for");
+        expect_symbol("(");
+        expect_keyword("int");
+        ForStmt stmt;
+        stmt.loop_var = expect_ident("loop variable");
+        expect_symbol("=");
+        if (peek().kind != TokenKind::IntLit) {
+            fail("expected integer loop start, found '" + peek().lexeme +
+                 "'");
+        }
+        stmt.start = std::stoll(peek().lexeme);
+        advance();
+        expect_symbol(";");
+        const std::string cond_var = expect_ident("loop condition variable");
+        if (cond_var != stmt.loop_var) {
+            fail_at(previous(),
+                    "loop condition variable '" + cond_var +
+                        "' does not match loop variable '" + stmt.loop_var +
+                        "'");
+        }
+        expect_symbol("<");
+        stmt.bound = parse_bound_expr();
+        expect_symbol(";");
+        const std::string incr_var = expect_ident("loop increment variable");
+        if (incr_var != stmt.loop_var) {
+            fail_at(previous(),
+                    "loop increment variable '" + incr_var +
+                        "' does not match loop variable '" + stmt.loop_var +
+                        "'");
+        }
+        expect_symbol("+");
+        expect_symbol("+");
+        expect_symbol(")");
+        stmt.body = parse_block();
+        return stmt;
+    }
+
+    // bound_expr := int | ident | "count" "(" ident ")"
+    // ("count" is contextual like "source": an Identifier that only takes
+    // the count branch when immediately followed by "(". A bound that is
+    // just an identifier named `count` still parses as Kind::Ident.)
+    BoundExpr parse_bound_expr() {
+        BoundExpr bound;
+        if (peek().kind == TokenKind::IntLit) {
+            bound.kind = BoundExpr::Kind::Literal;
+            bound.literal = std::stoll(peek().lexeme);
+            bound.line = peek().line;
+            bound.col = peek().col;
+            advance();
+            return bound;
+        }
+        if (peek().kind == TokenKind::Identifier) {
+            const Token name_tok = peek();
+            if (name_tok.lexeme == "count" && pos_ + 1 < toks_.size() &&
+                toks_[pos_ + 1].kind == TokenKind::Symbol &&
+                toks_[pos_ + 1].lexeme == "(") {
+                advance();  // count
+                expect_symbol("(");
+                bound.kind = BoundExpr::Kind::Count;
+                bound.ident = expect_ident("count target table");
+                bound.line = name_tok.line;
+                bound.col = name_tok.col;
+                expect_symbol(")");
+                return bound;
+            }
+            bound.kind = BoundExpr::Kind::Ident;
+            bound.ident = name_tok.lexeme;
+            bound.line = name_tok.line;
+            bound.col = name_tok.col;
+            advance();
+            return bound;
+        }
+        fail("expected loop bound (integer, name, or count(name)), found '" +
+             peek().lexeme + "'");
+    }
+
+    // while_stmt := "while" "(" predicate ")" block
+    WhileStmt parse_while_stmt() {
+        expect_keyword("while");
+        expect_symbol("(");
+        WhileStmt stmt;
+        stmt.cond = std::move(*parse_predicate());
+        expect_symbol(")");
+        stmt.body = parse_block();
+        // Always set: Phase 7's dispatcher MUST enforce a hard iteration
+        // cap on every WhileStmt at execution time (forward commitment —
+        // see wiki/17-control-flow.md). Not enforced here.
+        stmt.requires_runtime_ceiling = true;
+        return stmt;
     }
 
     // rule_decl := "rule" ident "(" [params] ")" "->" type block
@@ -243,7 +388,7 @@ private:
     }
 
     // stmt := ["let" ident "="] pipeline_expr ";"
-    PipelineStmt parse_stmt() {
+    PipelineStmt parse_pipeline_stmt() {
         PipelineStmt stmt;
         if (match_keyword("let")) {
             stmt.binding = expect_ident("binding name");

@@ -122,7 +122,7 @@ Every stdlib/registry shell script carries this header (see
 `jky_<domain>_<verb>_<object>` names, unknown domains, or unresolvable
 `depends_on`.
 
-## 5. .jky Grammar EBNF (as implemented, Phase 1 skeleton; unchanged by Phases 2–4)
+## 5. .jky Grammar EBNF (as implemented; control-flow statements added Phase 5.5)
 
 ```ebnf
 program        = { case_decl | evidence_decl | rule_decl | investigation_decl } ;
@@ -134,9 +134,14 @@ rule_decl      = "rule" ident "(" [ params ] ")" "->" type block ;
 params         = param { "," param } ;
 param          = ident ":" type ;
 type           = ident [ "<" type { "," type } ">" ] ;
-block          = "{" { statement } "}" ;
+block          = "{" { stmt } "}" ;
 investigation_decl = "investigate" ident block ;
-statement      = [ "let" ident "=" ] pipeline_expr ";" ;
+stmt           = pipeline_stmt | if_stmt | for_stmt | while_stmt ;
+pipeline_stmt  = [ "let" ident "=" ] pipeline_expr ";" ;
+if_stmt        = "if" "(" predicate ")" block [ "else" block ] ;
+for_stmt       = "for" "(" "int" ident "=" int ";" ident "<" bound_expr ";" ident "++" ")" block ;
+bound_expr     = int | ident | "count" "(" ident ")" ;
+while_stmt     = "while" "(" predicate ")" block ;
 pipeline_expr  = expr { "|" pipeline_op } ;
 expr           = source_call | call_expr | correlate_expr | field | literal | list ;
 source_call    = "source" ident ;
@@ -172,6 +177,21 @@ comparison     = operand [ comp_op operand ] ;
 comp_op        = "==" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "contains" | "contains_any" ;
 operand        = call_expr | field | literal | list ;
 ```
+
+Phase 5.5 notes on the control-flow rules (see `wiki/17-control-flow.md`
+for the full record):
+
+- The old `statement` rule is now `pipeline_stmt`; `block` holds the
+  `stmt` variant. Rule and investigation bodies share the shape.
+- `"++"` in `for_stmt` is EBNF shorthand: the lexer has no `++` token,
+  so it arrives as two `"+"` symbols (the parser expects both).
+- `int` lexes as a Keyword since Phase 5.5 (needed for the `for`
+  header); `type` still accepts it explicitly, so `min_bytes: int`
+  parses exactly as before.
+- There is deliberately no `call_stmt`: calls live only inside pipelines
+  (heads/operands), so bare `call f(...);` statements were not added.
+- `count` is contextual (an Identifier that takes the count branch only
+  when immediately followed by `"("`), like the existing `source`.
 
 Phase 1 amendments vs the Phase 0 draft (all implemented in
 `include/jocky/`, exercised by `samples/sample.jky`):

@@ -1,0 +1,11 @@
+# Fixture 5 (mixed call sites): site 1 calls dia_top (transitive tree),
+# site 2 calls dia_left (already inside site 1's closure). Shake must
+# resolve {base, left, right, top} with left exactly once — proving
+# deduplication across separate call sites, not just within one tree.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let a = call jky_recon_dia_top();
+  let b = call jky_recon_dia_left();
+}

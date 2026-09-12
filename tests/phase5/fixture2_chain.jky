@@ -1,0 +1,8 @@
+# Fixture 2 (transitive chain): program calls only chain_a.
+# Shake must resolve {chain_d, chain_c, chain_b, chain_a}, deps first.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let r = call jky_recon_chain_a();
+}

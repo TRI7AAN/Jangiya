@@ -66,6 +66,23 @@ so compilations embed the minimum necessary set and nothing more.
 **Deliverable:** Resolver that outputs the used-function list (`--list-used`)
 with tests covering direct, transitive, and diamond dependencies.
 
+## Phase 5.5: Control Flow Extension (ran between Phase 5 and Phase 6)
+
+**Goal:** Give `.jky` C-style control flow (`if`/`else`, C-shape `for`
+with statically boundable bounds, `while` flagged for runtime ceilings)
+without touching any stdlib script and without breaking any static
+guarantee Phases 3–5 established: the executed call set stays finite and
+fully known at compile time.
+**Deliverable:** Ran — lexer keywords (`if else for while int`), `Stmt`
+variant AST (`IfStmt`/`ForStmt`/`WhileStmt`/`BoundExpr`), shared
+`ast/walker.hpp` recursion adopted by the resolver, `bound_checker.hpp`
+(three bound forms; call-derived bounds refused), bound check wired into
+`resolve`/`gate`/`shake` (`check` stays parse-only), 6/6
+`tests/phase5.5/` fixtures green, full Phase 3/4/5 regression with zero
+drift. Record: `wiki/17-control-flow.md` (proposal analysis preserved in
+`wiki/17-control-flow-proposal.md`). Phase numbering after this point is
+unchanged (Phase 6 follows as planned).
+
 ## Phase 6: Script Embedding + jockyc Binary Generation
 
 **Goal:** Implement the `jockyc` ahead-of-time path: embed the tree-shaken

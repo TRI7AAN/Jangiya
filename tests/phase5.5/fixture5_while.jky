@@ -1,0 +1,12 @@
+# Fixture 5: while(predicate) — must parse successfully with the AST
+# flagging requires_runtime_ceiling = true (visible in jocky check).
+# Enforcement of the runtime cap is Phase 7's job, not this session's.
+case t {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  let f = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+  while (f == f) {
+    f | emit fin;
+  }
+}

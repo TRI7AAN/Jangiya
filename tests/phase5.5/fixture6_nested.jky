@@ -1,0 +1,21 @@
+# Fixture 6: deeply nested if -> for -> if with a call THREE levels
+# deep, plus a call in the outer else. All three calls must be found and
+# correctly resolved/gated/shaken — proving the shared walker recurses
+# fully, not just one level.
+case t {
+  allowed_capabilities: ["netforensics.pcap.read", "netforensics.flow.analyze", "compliance.tls.scan"];
+}
+investigate t {
+  let probe = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+  if (probe == probe) {
+    for (int i = 0; i < 3; i++) {
+      if (probe == probe) {
+        let deep = call jky_netforensics_top_talkers(flows_csv: "f.csv");
+        deep | emit fin;
+      }
+    }
+  } else {
+    let tls = call jky_compliance_run_testssl(target: "example.com");
+    tls | emit fin;
+  }
+}

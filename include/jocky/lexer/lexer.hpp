@@ -1,5 +1,12 @@
 #pragma once
-// JOCKY lexer — tokenizer for .jky source files (Phase 1 skeleton).
+// JOCKY lexer — tokenizer for .jky source files (Phase 1 skeleton,
+// control-flow keywords added Phase 5.5: if/else/for/while/int;
+// full C/C++/Java keyword sets reserved Phase 6: every word below lexes
+// as Keyword and can never be a binding/field/function name. Most have
+// NO grammar rule (reserved future syntax space, not usable today) —
+// see wiki/grammar.md §1. Deliberately NOT reserved: true/false (lex as
+// BoolLit via scan_word precedence) and null (a literal, would need
+// literal semantics — flagged future, not silently added).
 // Produces Identifier, Keyword, StringLit, IntLit, FloatLit, BoolLit,
 // Symbol, and EndOfFile tokens with 1-based line/column tracking.
 // `#` starts a line comment. Unknown escapes and unterminated strings
@@ -99,6 +106,40 @@ public:
             "markdown",   "html",       "readonly",  "and",
             "or",         "not",        "in",        "contains",
             "contains_any",
+            "if",         "else",       "for",       "while",
+            "int",
+            // C11 keywords (reserved; no grammar rules — future space).
+            "auto",       "break",      "char",      "const",
+            "continue",   "default",    "do",        "double",
+            "enum",       "extern",     "float",     "goto",
+            "inline",     "long",       "register",  "restrict",
+            "return",     "short",      "signed",    "sizeof",
+            "static",     "struct",     "switch",    "typedef",
+            "union",      "unsigned",   "void",      "volatile",
+            "_Alignas",   "_Alignof",   "_Atomic",   "_Bool",
+            "_Complex",   "_Generic",   "_Imaginary","_Noreturn",
+            "_Static_assert", "_Thread_local",
+            // C++ keywords beyond C (reserved; no grammar rules).
+            // (and/or/not already above; true/false stay BoolLit.)
+            "asm",        "bool",       "catch",     "char8_t",
+            "char16_t",   "char32_t",   "class",     "compl",
+            "concept",    "consteval",  "constexpr", "constinit",
+            "const_cast", "co_await",   "co_return", "co_yield",
+            "decltype",   "delete",     "dynamic_cast", "explicit",
+            "export",     "friend",     "mutable",   "namespace",
+            "new",        "noexcept",   "nullptr",   "operator",
+            "private",    "protected",  "public",    "reinterpret_cast",
+            "requires",   "static_assert", "static_cast", "template",
+            "this",       "thread_local", "throw",   "try",
+            "typeid",     "typename",   "using",     "virtual",
+            "wchar_t",    "and_eq",     "bitand",    "bitor",
+            "not_eq",     "or_eq",      "xor",       "xor_eq",
+            // Java keywords beyond C/C++ (reserved; no grammar rules).
+            "abstract",   "assert",     "boolean",   "byte",
+            "extends",    "final",      "finally",   "implements",
+            "import",     "instanceof", "interface", "native",
+            "package",    "strictfp",   "super",     "synchronized",
+            "throws",     "transient",
         };
         return table;
     }

@@ -1,75 +1,72 @@
-# Implementation Plan — Phase 5: Dependency-Aware Tree-Shaking Resolver (Current Phase)
+# Implementation Plan — Phase 6: Script Embedding + jockyc Binary Generation (Current Phase)
 
 > Per `AGENTS.md`, this file describes ONLY the current phase. It is not a
 > copy of `roadmap.md`.
-> Prior phase: Phase 4 complete — `include/jocky/semantic/case_binder.hpp`
-> binds every program to exactly one case (zero/duplicate/missing-field
-> are `BindingError`s), `include/jocky/policy/capability_gate.hpp`
-> fail-closed gates every resolved call against `CaseDecl::capabilities`
-> (all denials collected, `GateResult::Denied` carries function +
-> capability + case + line:col), `jocky gate` runs resolve → bind → gate
-> with `ALLOWED`/`DENIED` verdicts; 6/6 `tests/phase4/` fixtures behave as
-> specified on the real 7-function registry (binder refusals vs gate
-> denials proven distinct code paths); `check` AST, 6/6 `tests/phase3/`
-> outcomes, and 7/0/42 registry counts unchanged; see `logs.md` and
-> `wiki/13-phase4-capability-gate.md`. This file will be rewritten to
-> describe Phase 6 once Phase 5 is marked complete in logs.md.
+> Prior phases: Phase 5 complete — `fir/script_resolver.hpp` closes the
+> used-script set over `GateResult::authorized` only (`jocky shake`,
+> 5/5 fixtures on a throwaway registry; full record:
+> `wiki/16-phase5-tree-shaking.md`); then Phase 5.5 control-flow
+> extension complete — `if`/`else`, C-shape `for` with bound-checked
+> bounds, `while` flagged `requires_runtime_ceiling`; shared
+> `ast/walker.hpp` recursion adopted by the resolver (binder/gate/shaker
+> provably needed no changes); `check` AST, 6/6 `tests/phase3/`, 6/6
+> `tests/phase4/`, 5/5 `tests/phase5/`, and 7/0/42 registry counts
+> unchanged; 6/6 `tests/phase5.5/` green; see `logs.md` and
+> `wiki/17-control-flow.md`. This file will be rewritten to
+> describe Phase 7 once Phase 6 is marked complete in logs.md.
 
-## Phase: 5 — Dependency-Aware Tree-Shaking Resolver
+## Phase: 6 — Script Embedding + jockyc Binary Generation
 
 ## What Is Being Built
 
-Phase 4 proves every call is *allowed*; Phase 5 computes exactly what must
-be *shipped* for those allowed calls — nothing more. The tree-shaker
-operates on `GateResult::authorized` (the gate's allowed-call list), so
-denied calls can never pull scripts into a build: only calls that passed
-binding + gating participate in the closure.
+Phase 5 proves exactly what must be *shipped*; Phase 6 *ships* it: the
+`jockyc` ahead-of-time path embeds the tree-shaken script closure into a
+compiled artifact and links a standalone binary that no longer needs the
+filesystem registry at run time.
 
-1. **Used-function closure**: for a given `.jky` file, resolve the exact
-   set of stdlib scripts required — directly called functions (from the
-   authorized list) plus transitive `depends_on` (already parsed, stored,
-   and dependency-validated by the Phase 2 scanner, but never yet
-   walked). Walk the graph to fixpoint; report the closure in a stable,
-   deterministic order (matching the scanner's reproducibility rule —
-   compiled/interpreted manifest parity depends on it).
-2. **`--list-used` output**: a resolver mode (likely `jocky gate
-   --list-used` or a adjacent CLI spelling — decide explicitly in the
-   session, no silent choice) printing the used-function list with
-   script paths, so compilation input is inspectable before anything is
-   embedded.
-3. **Tests**: direct-only closure, transitive closure (e.g. a program
-   calling only `jky_netforensics_top_talkers` must pull
-   `jky_netforensics_extract_flows` via `depends_on`), and diamond
-   dependencies (two used functions sharing one dependency list it once)
-   — all on the real 7-function registry, whose `depends_on` edges
-   (`check_dns_anomalies`/`detect_beaconing`/`top_talkers` →
-   extractors) exercise transitive + diamond shapes without mocks.
-4. **Handoff note (documented, not built)**: Phase 6 embedding consumes
-   exactly this closure; record what the resolver guarantees (closed,
-   deduplicated, ordered set over authorized calls only) and what the
-   embedder must verify (hashes of the listed script paths at embed
-   time) in the wiki.
+1. **Embedding input**: consume Phase 5's deduplicated, topologically
+   ordered `ScriptMetadata` list directly — one embedded unit per entry,
+   in that exact order. Do NOT re-implement deduplication or cycle
+   detection (solved once in `resolve_scripts`); DO hash every listed
+   `script_path` at embed time and refuse on mismatch (the resolver
+   guarantees set/order, not file freshness — see `wiki/16` §6).
+   Control-flow programs need no special handling here: Phase 5.5's
+   shared `ast/walker.hpp` already folds `if`/`for`/`while` bodies into
+   the same resolved-call stream the shaker consumes, so the closure
+   arriving at the embedder is complete by construction (both branches
+   included — the documented conservative union, `wiki/17-control-flow.md`
+   §5).
+2. **`jockyc <file.jky> [-o output]`**: full chain (check → resolve →
+   bind → gate → shake → embed → link) producing a runnable standalone
+   binary with embedded scripts verifiable by hash. Default output
+   `./a.out` per `wiki/06` §1.
+3. **Scope**: Linux/WSL only. The stdlib is bash, the verified toolchain
+   is Debian g++ on Kali, and parity scope stays same-OS (per `wiki/08`
+   R5). No Windows target this phase; the cross-platform compiler stays
+   a PS-level adopted requirement (`wiki/08` D2), out of scope here.
+   (Note: no explicit Linux/WSL-only decision was found in the wiki when
+   this plan was written — searched; the closest records are D2 and R5
+   above. This plan records the scope as carried forward from the
+   session brief; Phase 6 may cite the original design doc if located.)
 
 ## Why
 
-`jockyc` must embed the minimum necessary script set: embedding the whole
-registry bloats the artifact and widens the audit surface, while embedding
-too little breaks the binary. The closure must additionally be gated —
-tree-shaking over raw resolved calls instead of the authorized list would
-ship scripts for denied capabilities. The depends_on graph exists in the
-index but no code walks it yet; that is the exact gap this phase closes.
+Without embedding, every run depends on a live filesystem registry —
+unacceptable for a verifiable artifact (the registry can change under
+the binary). Embedding exactly the shaken closure keeps the artifact
+minimal (audit surface) and self-contained (no registry at run time),
+with embedded-script hashes making the contents verifiable.
 
 ## Definition of Done
 
-- [ ] Closure computed over `GateResult::authorized` only (denied calls
-      contribute nothing); transitive `depends_on` walked to fixpoint,
-      deduplicated, deterministically ordered.
-- [ ] `--list-used` (or explicitly-decided equivalent spelling) prints
-      the used-function list with script paths; exit non-zero on
-      bind/gate failure before any listing.
-- [ ] CLI spelling decision documented explicitly (no silent choice).
-- [ ] Phase 6 handoff (resolver guarantee vs embedder re-verification)
-      written in the wiki.
-- [ ] Tests green on the real registry (direct, transitive, diamond).
-- [ ] `logs.md` records Phase 5 as complete, at which point this file
-      (implementationplan.md) is rewritten to describe Phase 6.
+- [ ] `jockyc <file.jky> [-o output]` produces a runnable standalone
+      binary with exactly the shaken closure embedded (hash-verifiable).
+- [ ] Embed-time hashing of every `script_path`; mismatch refuses the
+      build (exit non-zero).
+- [ ] Denied gates never reach embedding (fail-closed chain: shake
+      refuses first).
+- [ ] Linux/WSL scope documented (no Windows target claimed or tested).
+- [ ] Tests green: embedded set matches `jocky shake` listing for the
+      same program; binary runs without the filesystem registry.
+- [ ] `logs.md` records Phase 6 as complete, at which point this file
+      (implementationplan.md) is rewritten to describe Phase 7.

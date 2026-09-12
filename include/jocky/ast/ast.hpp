@@ -1,11 +1,14 @@
 #pragma once
-// JOCKY AST — node structs for .jky programs (Phase 1 skeleton).
+// JOCKY AST — node structs for .jky programs (Phase 1 skeleton;
+// control-flow statements added Phase 5.5).
 // Pure data: no parsing or semantic behavior lives here. The pretty
 // printer in src/cli/main.cpp renders these nodes for `jocky check`.
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace jocky {
@@ -142,6 +145,64 @@ struct PipelineStmt {
     PipelineExpr expr;
 };
 
+// A brace-delimited statement sequence (rule/investigate bodies and
+// control-flow bodies share this shape since Phase 5.5).
+using Block = std::vector<struct Stmt>;
+
+// `if (predicate) { ... } [else { ... }]` — both branches are
+// statically collected by every semantic pass (conservative: the gate
+// authorizes BOTH branches since the runtime choice is unknowable at
+// compile time); Phase 7/8 evaluates the predicate for real.
+struct IfStmt {
+    Predicate cond;
+    Block then_block;
+    std::optional<Block> else_block;
+};
+
+// A `for` bound in one of three statically checkable forms (see
+// semantic/bound_checker.hpp): integer literal, a name bound to an
+// integer literal in an enclosing scope, or count(<bound table>).
+struct BoundExpr {
+    enum class Kind {
+        Literal,
+        Ident,
+        Count,
+    };
+    Kind kind = Kind::Literal;
+    std::int64_t literal = 0;  // Kind::Literal
+    std::string ident;  // Kind::Ident: constant name; Kind::Count: table name
+    int line = 0;  // position of the bound for diagnostics
+    int col = 0;
+};
+
+// `for (int i = 0; i < bound; i++) { ... }` — C-style shape for
+// familiarity; only the bound carries semantic weight (checked by
+// bound_checker). The loop variable is scoped to the body and never
+// treated as a compile-time constant itself.
+struct ForStmt {
+    std::string loop_var;
+    std::int64_t start = 0;
+    BoundExpr bound;
+    Block body;
+};
+
+// `while (predicate) { ... }` — syntactically unrestricted, but every
+// node carries requires_runtime_ceiling = true: Phase 7's dispatcher
+// MUST enforce a hard iteration cap at execution time (forward
+// commitment documented in wiki/17-control-flow.md; not enforced here).
+struct WhileStmt {
+    Predicate cond;
+    Block body;
+    bool requires_runtime_ceiling = true;
+};
+
+// Any statement that may appear in a block. NOTE: there is deliberately
+// no CallStmt — calls live only inside pipelines (as heads or predicate
+// operands), so bare `call f(...);` statements were not added.
+struct Stmt {
+    std::variant<PipelineStmt, IfStmt, ForStmt, WhileStmt> node;
+};
+
 struct TypeRef {
     std::string name;
     std::vector<TypeRef> args;  // e.g. table<flow>
@@ -156,12 +217,13 @@ struct RuleDecl {
     std::string name;
     std::vector<Param> params;
     TypeRef returns;
-    std::vector<PipelineStmt> body;
+    Block body;  // Phase 5.5: was vector<PipelineStmt>; rules accept the
+                 // same control-flow statements as investigations.
 };
 
 struct InvestigationDecl {
     std::string name;
-    std::vector<PipelineStmt> body;
+    Block body;  // Phase 5.5: was vector<PipelineStmt>.
 };
 
 struct CaseDecl {

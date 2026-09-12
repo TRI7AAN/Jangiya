@@ -1,0 +1,9 @@
+# Fixture 3 (diamond): dia_top depends on left+right, both on base.
+# Shake must resolve {base, left, right, top}: base exactly once, before
+# both arms (left before right by the alphabetical edge tiebreak).
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let r = call jky_recon_dia_top();
+}

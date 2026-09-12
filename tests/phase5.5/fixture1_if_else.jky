@@ -1,0 +1,16 @@
+# Fixture 1: if/else with a call in EACH branch. Conservative static
+# analysis: BOTH branches' capabilities must be authorized even though
+# only one branch runs at runtime — the case below allows both, so gate
+# must print ALLOWED with both calls listed.
+case t {
+  allowed_capabilities: ["netforensics.pcap.read", "netforensics.flow.analyze"];
+}
+investigate t {
+  let probe = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+  if (probe == probe) {
+    let ranked = call jky_netforensics_top_talkers(flows_csv: "f.csv");
+    ranked | emit fin;
+  } else {
+    probe | emit fin;
+  }
+}

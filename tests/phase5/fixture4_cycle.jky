@@ -1,0 +1,8 @@
+# Fixture 4 (cycle): cyc_x <-> cyc_y. Resolve/bind/gate all succeed;
+# shake must fail showing the FULL cycle path, exit 1.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let r = call jky_recon_cyc_x();
+}
