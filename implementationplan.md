@@ -1,69 +1,75 @@
-# Implementation Plan — Phase 4: Capability Gate Enforcement (Current Phase)
+# Implementation Plan — Phase 5: Dependency-Aware Tree-Shaking Resolver (Current Phase)
 
 > Per `AGENTS.md`, this file describes ONLY the current phase. It is not a
 > copy of `roadmap.md`.
-> Prior phase: Phase 3 complete — `include/jocky/semantic/call_resolver.hpp`
-> resolves every `call` against the registry index with arity checking
-> (`= default` inputs stored on `InputParam` and filled at call sites),
-> parse-level input-type validation, and return-type plumbing into
-> `let`-binding types; `jocky resolve` runs it with `file:line:col`
-> diagnostics; 6/6 fixtures behave as specified on the real 7-function
-> registry with `timeline/` + `report/` legitimately empty; `check` AST
-> and 7/0/42 registry counts unchanged; see `logs.md` and
-> `wiki/12-phase3-resolution.md`. This file will be rewritten to
-> describe Phase 5 once Phase 4 is marked complete in logs.md.
+> Prior phase: Phase 4 complete — `include/jocky/semantic/case_binder.hpp`
+> binds every program to exactly one case (zero/duplicate/missing-field
+> are `BindingError`s), `include/jocky/policy/capability_gate.hpp`
+> fail-closed gates every resolved call against `CaseDecl::capabilities`
+> (all denials collected, `GateResult::Denied` carries function +
+> capability + case + line:col), `jocky gate` runs resolve → bind → gate
+> with `ALLOWED`/`DENIED` verdicts; 6/6 `tests/phase4/` fixtures behave as
+> specified on the real 7-function registry (binder refusals vs gate
+> denials proven distinct code paths); `check` AST, 6/6 `tests/phase3/`
+> outcomes, and 7/0/42 registry counts unchanged; see `logs.md` and
+> `wiki/13-phase4-capability-gate.md`. This file will be rewritten to
+> describe Phase 6 once Phase 5 is marked complete in logs.md.
 
-## Phase: 4 — Case-Level Authorization + Capability Gate (Static Check)
+## Phase: 5 — Dependency-Aware Tree-Shaking Resolver
 
 ## What Is Being Built
 
-Phase 3 proves a call is *well-formed*; Phase 4 proves it is *allowed*.
-This stays a separate phase from resolution, not merged back in: the
-resolver already records each call's declared capability
-(`ResolvedCall::capability`) but enforces nothing against it.
+Phase 4 proves every call is *allowed*; Phase 5 computes exactly what must
+be *shipped* for those allowed calls — nothing more. The tree-shaker
+operates on `GateResult::authorized` (the gate's allowed-call list), so
+denied calls can never pull scripts into a build: only calls that passed
+binding + gating participate in the closure.
 
-1. **Case association**: every `investigate <name>` block binds to its
-   `case <name>` block (matched by name). An investigation with no
-   matching case block is a hard error — an investigation without a
-   declared authorization scope must not resolve, let alone run.
-2. **Gate check** (static half of AGENTS.md §2.2): each resolved call's
-   declared capability must be a member of its case's
-   `allowed_capabilities` list. Denials are hard errors with
-   `file:line:col` diagnostics naming the capability, the function, and
-   the case — e.g. a `compliance.tls.scan` call inside a case that only
-   allows `netforensics.pcap.read` refuses before anything executes.
-   The check runs wherever resolution runs (`jocky resolve`; decide in
-   the session whether the gate lives inside `resolve_program` or as a
-   separate pass over `ResolvedProgram` — decide explicitly, no silent
-   choice).
-3. **Runtime hook point (documented, not built)**: the dynamic half of
-   the gate (refuse + manifest-log the denial at dispatch) lands in
-   Phase 7; Phase 4 records the exact handoff (what the checker
-   guarantees, what the dispatcher must re-verify) in the wiki so the
-   static check is never mistaken for enforcement at run time.
-4. **Tests**: allowed calls pass; denied capabilities fail with the
-   denial naming capability + function + case; investigation without a
-   case fails; fixture on the real 7-function registry (whose declared
-   capabilities span `netforensics.*` and `compliance.tls.scan`, so both
-   outcomes are exercisable without mocks alone).
+1. **Used-function closure**: for a given `.jky` file, resolve the exact
+   set of stdlib scripts required — directly called functions (from the
+   authorized list) plus transitive `depends_on` (already parsed, stored,
+   and dependency-validated by the Phase 2 scanner, but never yet
+   walked). Walk the graph to fixpoint; report the closure in a stable,
+   deterministic order (matching the scanner's reproducibility rule —
+   compiled/interpreted manifest parity depends on it).
+2. **`--list-used` output**: a resolver mode (likely `jocky gate
+   --list-used` or a adjacent CLI spelling — decide explicitly in the
+   session, no silent choice) printing the used-function list with
+   script paths, so compilation input is inspectable before anything is
+   embedded.
+3. **Tests**: direct-only closure, transitive closure (e.g. a program
+   calling only `jky_netforensics_top_talkers` must pull
+   `jky_netforensics_extract_flows` via `depends_on`), and diamond
+   dependencies (two used functions sharing one dependency list it once)
+   — all on the real 7-function registry, whose `depends_on` edges
+   (`check_dns_anomalies`/`detect_beaconing`/`top_talkers` →
+   extractors) exercise transitive + diamond shapes without mocks.
+4. **Handoff note (documented, not built)**: Phase 6 embedding consumes
+   exactly this closure; record what the resolver guarantees (closed,
+   deduplicated, ordered set over authorized calls only) and what the
+   embedder must verify (hashes of the listed script paths at embed
+   time) in the wiki.
 
 ## Why
 
-A well-typed call to a real function is still unauthorized execution if
-its case never granted the capability. Without the gate, `check`
-waves through investigations that the safety contract (AGENTS.md §2.2,
-"refuse to run and log the denial") forbids — the exact gap Phase 5
-tree-shaking and Phase 7 dispatch both assume is closed.
+`jockyc` must embed the minimum necessary script set: embedding the whole
+registry bloats the artifact and widens the audit surface, while embedding
+too little breaks the binary. The closure must additionally be gated —
+tree-shaking over raw resolved calls instead of the authorized list would
+ship scripts for denied capabilities. The depends_on graph exists in the
+index but no code walks it yet; that is the exact gap this phase closes.
 
 ## Definition of Done
 
-- [ ] Investigate-to-case binding enforced; missing case is an error
-      with `file:line:col` diagnostics; exit non-zero.
-- [ ] Capability denials carry `file:line:col` diagnostics naming
-      capability, function, and case; exit non-zero.
-- [ ] Resolver-vs-gate layering decided explicitly and documented.
-- [ ] Phase 7 handoff (static guarantee vs runtime re-verification)
+- [ ] Closure computed over `GateResult::authorized` only (denied calls
+      contribute nothing); transitive `depends_on` walked to fixpoint,
+      deduplicated, deterministically ordered.
+- [ ] `--list-used` (or explicitly-decided equivalent spelling) prints
+      the used-function list with script paths; exit non-zero on
+      bind/gate failure before any listing.
+- [ ] CLI spelling decision documented explicitly (no silent choice).
+- [ ] Phase 6 handoff (resolver guarantee vs embedder re-verification)
       written in the wiki.
-- [ ] Tests green on the real registry (both allow and deny outcomes).
-- [ ] `logs.md` records Phase 4 as complete, at which point this file
-      (implementationplan.md) is rewritten to describe Phase 5.
+- [ ] Tests green on the real registry (direct, transitive, diamond).
+- [ ] `logs.md` records Phase 5 as complete, at which point this file
+      (implementationplan.md) is rewritten to describe Phase 6.

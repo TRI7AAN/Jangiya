@@ -1,0 +1,7 @@
+# Fixture 5: case authorizes exactly what is used. Must pass, exit 0.
+case t {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+}

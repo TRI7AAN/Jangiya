@@ -1,0 +1,9 @@
+# Fixture 3: case block present but allowed_capabilities NEVER declared
+# (capabilities_declared == false). Must fail at the BINDER stage with an
+# error DISTINCT from fixture 4's — binding refuses before gating runs,
+# so no DENIED verdict line may appear.
+case t {
+}
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+}

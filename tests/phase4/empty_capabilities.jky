@@ -1,0 +1,10 @@
+# Fixture 4: allowed_capabilities declared but EMPTY
+# (capabilities_declared == true, zero entries). Binding SUCCEEDS here —
+# this must fail at the GATE stage (capability_gate.hpp DENIED verdict),
+# proving fixtures 3 vs 4 are different code paths, not different messages.
+case t {
+  allowed_capabilities: [];
+}
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+}

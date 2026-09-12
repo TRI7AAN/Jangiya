@@ -1,0 +1,5 @@
+# Fixture 1: zero case blocks. The call itself is valid (resolves clean),
+# so this must fail at the BINDER stage with the zero-case error.
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+}

@@ -1,0 +1,11 @@
+# Fixture 2: two case blocks. The call itself is valid (resolves clean),
+# so this must fail at the BINDER stage listing both duplicate case names.
+case alpha {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+case beta {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+}

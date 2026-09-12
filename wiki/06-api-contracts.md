@@ -10,6 +10,7 @@ jockyc <file.jky> [-o output] [--list-used]
 jocky <file.jky>
 jocky check <file.jky>
 jocky resolve <file.jky> [--registry <dir>]
+jocky gate <file.jky> [--registry <dir>]
 jocky verify <manifest.json>
 scan_registry <dir>
 ```
@@ -18,7 +19,8 @@ scan_registry <dir>
 | ------- | -------- |
 | `jockyc <file.jky> [-o output] [--list-used]` | Compile: parse, check, resolve the tree-shaken script closure, embed it, link to a standalone binary at `output` (default `./a.out`). `--list-used` prints the resolved function list and exits without linking. |
 | `jocky <file.jky>` | Interpret: same front end and checks, but execute directly against the filesystem registry with no compile step. Manifest semantics identical to the compiled path (parity). Also supports `jocky check <file.jky>` (parse + check only) for the demo's first beat. |
-| `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here (Phase 4). |
+| `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here — that is `jocky gate` (Phase 4). |
+| `jocky gate <file.jky> [--registry <dir>]` | Phase 4 authorization verdict: lex → parse → resolve → bind (exactly one `case`, `BindingError` otherwise) → fail-closed gate over every resolved call's recorded capability. Prints `ALLOWED: N calls authorized under case '<name>'` with the per-call list (exit 0), or `DENIED: N violation(s) under case '<name>'` with one `<file>:<line>:<col>` denial line per violating call naming function + required capability + case (exit 1). Binder-stage refusals print `error: <file>: <message> (case binding)`. Full record in `wiki/13-phase4-capability-gate.md`. |
 | `jocky verify <manifest.json>` | Re-hash declared inputs/outputs, re-check per-execution entries, report PASS/FAIL. Reads only the manifest and referenced artifacts; never executes scripts. |
 | `scan_registry <dir>` | Walk `<dir>` for `@jocky:` headers, build (or rebuild) the registry index, report indexed functions and header errors. |
 
@@ -120,7 +122,7 @@ Every stdlib/registry shell script carries this header (see
 `jky_<domain>_<verb>_<object>` names, unknown domains, or unresolvable
 `depends_on`.
 
-## 5. .jky Grammar EBNF (as implemented, Phase 1 skeleton)
+## 5. .jky Grammar EBNF (as implemented, Phase 1 skeleton; unchanged by Phases 2–4)
 
 ```ebnf
 program        = { case_decl | evidence_decl | rule_decl | investigation_decl } ;
@@ -173,7 +175,6 @@ operand        = call_expr | field | literal | list ;
 
 Phase 1 amendments vs the Phase 0 draft (all implemented in
 `include/jocky/`, exercised by `samples/sample.jky`):
-
 - Investigation blocks use the `investigate` keyword (lexer keyword
   set governs); the draft's `"investigation"` keyword is retired.
 - `call`, `filter`, `write`, `let` are keywords (required by the
@@ -199,3 +200,12 @@ Phase 1 amendments vs the Phase 0 draft (all implemented in
 - Pipeline operators: `filter`/`where`/`having` (predicates), `select`,
   `correlate...within...on...`, `group_by`, `sort_by`, `limit`, `emit`,
   `write` (outputs only; evidence targets rejected).
+
+Phase 4 AST note (surface syntax unchanged — the EBNF above still parses
+exactly the same language): the parsed `CaseDecl` carries a parser-set
+`capabilities_declared` flag (`false` by default, set `true` when the
+`allowed_capabilities` field header is parsed, list empty or not), so the
+Phase 4 binder can distinguish "field never written" (bind-time refusal)
+from "field written as `[]`" (binds fine, gate denies). The frozen
+`jocky check` printer does not render the flag. Details and fixture
+proof in `wiki/13-phase4-capability-gate.md`.

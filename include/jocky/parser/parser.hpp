@@ -146,6 +146,7 @@ private:
             }
             expect_symbol(":");
             expect_symbol("[");
+            decl.capabilities_declared = true;
             if (!check_symbol("]")) {
                 decl.capabilities.push_back(expect_string("capability"));
                 while (match_symbol(",")) {

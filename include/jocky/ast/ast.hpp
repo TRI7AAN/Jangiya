@@ -167,6 +167,11 @@ struct InvestigationDecl {
 struct CaseDecl {
     std::string name;
     std::vector<std::string> capabilities;
+    // True when the source actually wrote an `allowed_capabilities` field
+    // (Phase 4: lets semantic code distinguish "field never written" from
+    // "field written as []" — an empty capabilities list and an absent
+    // field are different authorization postures).
+    bool capabilities_declared = false;
 };
 
 struct EvidenceDecl {

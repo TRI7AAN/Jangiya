@@ -2,7 +2,7 @@
 
 # SIH WINNER 2026
 
-## JOCKY — Phases 1–3 Complete, Phase 4 Current
+## JOCKY — Phases 1–4 Complete, Phase 5 Current
 
 **JOCKY** is a C++20 compiler/runtime for a forensic domain-specific
 language (`.jky` files), built for **SIH26148 (NTRO, SIH 2026,
@@ -17,7 +17,7 @@ only), and ends by appending to `logs.md`.
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
 | `roadmap.md` | Full plan, Phases 0–11 (changes rarely) |
-| `implementationplan.md` | Current phase detail only (Phase 4: capability gate enforcement) |
+| `implementationplan.md` | Current phase detail only (Phase 5: dependency-aware tree-shaking resolver) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
 | `wiki/01-prd.md` | Product requirements + the permanent no-evasion boundary |
@@ -32,13 +32,16 @@ only), and ends by appending to `logs.md`.
 | `wiki/10-phase1-verification.md` | Read-only checkpoint: build evidence, counts, audits, root-file inspection |
 | `wiki/11-phase2-drift-check.md` | Read-only drift checkpoint + first quarantine SHA-256 baseline |
 | `wiki/12-phase3-resolution.md` | Phase 3 record: `= default` decision, resolver rules, six fixture runs |
-| `include/jocky/` | C++20 frontend: `lexer/`, `ast/`, `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` |
-| `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) |
+| `wiki/13-phase4-capability-gate.md` | Phase 4 record: case binder, capability gate, `jocky gate`, six fixture runs |
+| `wiki/14-phase3-verification.md` | Retroactive persistence + live re-run of the chat-only verification (build, AST, 7/0/42, 6/6 fixtures, quarantine) |
+| `include/jocky/` | C++20 frontend: `lexer/`, `ast/`, `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `policy/capability_gate.hpp` |
+| `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) |
 | `src/stdlib/metadata_scanner.cpp` | `scan_registry` engine (header parse, validation, JSON index) |
 | `tools/scan_registry.cpp` | `scan_registry <dir>` CLI driver |
 | `CMakeLists.txt` | CMake 3.20+, C++20, `jocky` + `scan_registry` targets |
 | `samples/sample.jky` | Sample exercising every grammar construct (parse-level fixture; intentionally unresolved — see `wiki/12`) |
 | `tests/phase3/` | Six `call` resolution fixtures (unknown/missing/default-ok/mismatch/extra/correct) for `jocky resolve` |
+| `tests/phase4/` | Six gate fixtures (zero/duplicate cases, field-absent vs field-empty, exact-allow, partial-allow with both denials) for `jocky gate` |
 | `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `shared/` (testssl wrapper + vendored `testssl.sh`) — 7 headers present, 41 pending Phase 9 |
 | `_quarantine/` | Origin-unconfirmed files (CSV/JSON reference data), excluded from registry/scanner/docs pending owner confirmation |
 
@@ -57,8 +60,12 @@ only), and ends by appending to `logs.md`.
   plumbing (`include/jocky/semantic/call_resolver.hpp`, `jocky resolve`,
   `= default` stored on registry inputs, 6/6 fixtures green) — complete,
   logged in `logs.md`
-- [ ] Phase 4 (current): case-level authorization + capability gate
-  enforcement over resolved calls — see `implementationplan.md`
+- [x] Phase 4: case binding (exactly-one-case, `capabilities_declared`)
+  + capability gate (`include/jocky/semantic/case_binder.hpp`,
+  `include/jocky/policy/capability_gate.hpp`, `jocky gate`, 6/6 fixtures
+  green: binder refusals vs gate denials) — complete, logged in `logs.md`
+- [ ] Phase 5 (current): dependency-aware tree-shaking resolver over the
+  gate's allowed-call list — see `implementationplan.md`
 
 ### Safety boundary (permanent, see `AGENTS.md` §2)
 

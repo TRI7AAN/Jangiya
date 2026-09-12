@@ -1,12 +1,15 @@
-// jocky CLI — Phase 1 skeleton + Phase 3 `resolve`.
+// jocky CLI — Phase 1 skeleton + Phase 3 `resolve` + Phase 4 `gate`.
 // Usage: jocky check <file.jky>
 //        jocky resolve <file.jky> [--registry <dir>]
+//        jocky gate <file.jky> [--registry <dir>]
 // `check` lexes, parses, and pretty-prints the AST (output frozen since
-// Phase 1 — do not change it; baselines in wiki/10 and wiki/11 depend on
-// it). `resolve` additionally runs the Phase 3 call resolver against the
-// registry index and prints each resolved call with its inferred type.
-// Exit 0 on success, exit 1 on usage errors or lex/parse/resolve
-// failures (diagnostics on stderr in file:line:col style).
+// Phase 1 — do not change it; baselines in wiki/10, wiki/11, and wiki/14
+// depend on it). `resolve` additionally runs the Phase 3 call resolver
+// against the registry index and prints each resolved call with its
+// inferred type. `gate` runs the full Phase 4 chain (resolve → bind →
+// gate) and prints the authorization verdict. Exit 0 on success, exit 1
+// on usage errors or lex/parse/resolve/bind/gate failures (diagnostics on
+// stderr in file:line:col style).
 
 #include <fstream>
 #include <iostream>
@@ -16,7 +19,9 @@
 #include "jocky/ast/ast.hpp"
 #include "jocky/lexer/lexer.hpp"
 #include "jocky/parser/parser.hpp"
+#include "jocky/policy/capability_gate.hpp"
 #include "jocky/semantic/call_resolver.hpp"
+#include "jocky/semantic/case_binder.hpp"
 #include "jocky/stdlib/script_metadata.hpp"
 
 namespace {
@@ -363,6 +368,81 @@ int run_resolve(const std::string& path, const std::string& registry_dir) {
     return 0;
 }
 
+void print_gate(const std::string& path, const jocky::GateResult& gate) {
+    if (gate.allowed) {
+        std::cout << "ALLOWED: " << gate.authorized.size()
+                  << " calls authorized under case '" << gate.case_name
+                  << "'\n";
+        for (const jocky::ResolvedCall& call : gate.authorized) {
+            std::cout << "  call " << call.function << " -> "
+                      << jocky::type_to_string(call.result_type)
+                      << " [capability " << call.capability << "]\n";
+        }
+        return;
+    }
+    std::cout << "DENIED: " << gate.violations.size() << " violation(s)"
+              << " under case '" << gate.case_name << "'\n";
+    for (const jocky::GateViolation& violation : gate.violations) {
+        std::cout << "  " << path << ":" << violation.line << ":"
+                  << violation.col << ": call '" << violation.function
+                  << "' requires capability '" << violation.capability
+                  << "' not granted by case '" << violation.case_name
+                  << "'\n";
+    }
+}
+
+int run_gate(const std::string& path, const std::string& registry_dir) {
+    jocky::Program prog;
+    try {
+        prog = load_program(path);
+    } catch (const jocky::LexError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::ParseError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    jocky::ScanResult scanned = jocky::scan_registry_dir(registry_dir);
+    if (!scanned.rejections.empty()) {
+        for (const std::string& rejection : scanned.rejections) {
+            std::cerr << "REJECT " << rejection << "\n";
+        }
+        std::cerr << "error: cannot gate against a rejected registry "
+                     "index (fix headers or rebuild the registry)\n";
+        return 1;
+    }
+    try {
+        jocky::ResolvedProgram resolved =
+            jocky::resolve_program(prog, scanned.registry);
+        jocky::BoundProgram bound =
+            jocky::bind_program(prog, std::move(resolved));
+        jocky::GateResult gate = jocky::check_gate(bound);
+        print_gate(path, gate);
+        return gate.allowed ? 0 : 1;
+    } catch (const jocky::SemanticError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::BindingError& ex) {
+        // Binder failures are program-level (line/col 0: no single token
+        // to point at) — tagged "(case binding)" so fixture 3 vs 4 runs
+        // show which stage refused, binder here vs gate in DENIED lines.
+        if (ex.line > 0) {
+            std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                      << ": " << ex.what() << " (case binding)\n";
+        } else {
+            std::cerr << "error: " << path << ": " << ex.what()
+                      << " (case binding)\n";
+        }
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::string(argv[1]) == "check") {
         return run_check(argv[2]);
@@ -373,7 +453,14 @@ int main(int argc, char** argv) {
             (argc == 5) ? argv[4] : "stat_scripts/";
         return run_resolve(argv[2], registry);
     }
+    if ((argc == 3 || (argc == 5 && std::string(argv[3]) == "--registry")) &&
+        std::string(argv[1]) == "gate") {
+        const std::string registry =
+            (argc == 5) ? argv[4] : "stat_scripts/";
+        return run_gate(argv[2], registry);
+    }
     std::cerr << "usage: jocky check <file.jky>\n"
-                 "       jocky resolve <file.jky> [--registry <dir>]\n";
+                 "       jocky resolve <file.jky> [--registry <dir>]\n"
+                 "       jocky gate <file.jky> [--registry <dir>]\n";
     return 1;
 }

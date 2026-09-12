@@ -1,0 +1,11 @@
+# Fixture 6: case authorizes SOME but not ALL needed capabilities across
+# three calls requiring three different capabilities. Must fail with BOTH
+# violations listed (fail-closed collects all denials, not just the first).
+case t {
+  allowed_capabilities: ["netforensics.pcap.read"];
+}
+investigate t {
+  let flows = call jky_netforensics_extract_flows(pcap_path: "a.pcap");
+  let ranked = call jky_netforensics_top_talkers(flows_csv: "f.csv");
+  let tls = call jky_compliance_run_testssl(target: "example.com");
+}

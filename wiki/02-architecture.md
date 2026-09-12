@@ -7,7 +7,8 @@
   -> Lexer
   -> Parser (recursive descent)
   -> AST
-  -> Call resolver (Phase 3, built) + capability gate (Phase 4, current)
+  -> Call resolver (Phase 3, built) + case binder / capability gate
+     (Phase 4, built)
   -> Forensic IR (FIR)
   -> Policy validator
   -> Tree-shaking resolver
@@ -25,19 +26,34 @@
   errors with `file:line:col` diagnostics — and plumbs each declared
   output type into its `let` binding for downstream checking. Surfaced
   via the `jocky resolve` command. Capability gating is NOT applied here.
-- **Capability gate (Phase 4, current):** Type-checks pipelines,
-  rejects writes to declared evidence paths, and verifies the case's
-  `allowed_capabilities` cover every resolved call's declared capability
-  before execution is permitted.
+- **Case binder + capability gate (Phase 4, built):**
+  `include/jocky/semantic/case_binder.hpp` binds every program to exactly
+  one `case` block (zero/duplicate cases and a case that never declared
+  `allowed_capabilities` are `BindingError`s — the parser tracks field
+  presence on `CaseDecl::capabilities_declared`, so "never written" and
+  "written as `[]`" stay distinct). `include/jocky/policy/capability_gate.hpp`
+  then fail-closed checks every resolved call's recorded capability
+  against the bound case's `allowed_capabilities`, collecting ALL denials
+  (function + capability + case + `file:line:col`) before refusing the
+  whole compilation. Surfaced via the `jocky gate` command
+  (`ALLOWED`/`DENIED` verdicts, exit 0/1). This is the static half of the
+  safety contract only — Phase 7's dispatcher must independently re-check
+  at run time (see `wiki/13-phase4-capability-gate.md` §5). Full Phase 4
+  record in `wiki/13-phase4-capability-gate.md`.
 - **Forensic IR — FIR (Phases 1–4):** The serializable, inspectable
   execution plan: investigation name, capabilities, inputs, operations,
   writes, and the prohibited list. FIR is what `plan` shows, what policy
   validates, and what both back ends execute. Schema in
   `wiki/06-api-contracts.md`.
-- **Policy validator (Phase 4):** Rejects FIRs that violate hard rules
+- **Policy validator (future):** Rejects FIRs that violate hard rules
   (evidence write, missing capability, unvalidated args, prohibited
-  operation) before the resolver or runtime ever sees them.
-- **Tree-shaking resolver (Phase 5):** Computes the exact stdlib closure
+  operation) before the resolver or runtime ever sees them. Not yet built:
+  Phase 4 built only the static capability gate (binder + gate over
+  resolved calls, no FIR, no pipeline type-checking, no evidence-write
+  rejection) — see `wiki/13-phase4-capability-gate.md` for the exact
+  boundary. The `policy/` include directory now exists (home of the gate)
+  for future policy checks to live beside.
+- **Tree-shaking resolver (Phase 5, current):** Computes the exact stdlib closure
   for the FIR — directly called functions plus transitive `depends_on` —
   so compilations embed the minimum set. Surfaced via `--list-used`.
 - **C++ runtime (Phases 6–7):** Evidence adapters (read-only
@@ -63,7 +79,9 @@ manifest semantics — parity is a release requirement (Phase 8).
 Supporting commands: `jocky check <file.jky>` parses and prints the AST
 without executing anything; `jocky resolve <file.jky>` additionally
 resolves every `call` against the registry (Phase 3, no capability
-gate); `jocky verify <manifest.json>` re-hashes
+gate); `jocky gate <file.jky>` runs the full Phase 4 chain
+(resolve → bind → gate) and prints the `ALLOWED`/`DENIED` authorization
+verdict; `jocky verify <manifest.json>` re-hashes
 inputs/outputs and checks the manifest; `scan_registry <dir>` rebuilds the
 registry index from `@jocky:` headers.
 
