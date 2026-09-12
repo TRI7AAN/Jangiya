@@ -6,7 +6,7 @@ network APIs. JOCKY has no network surface.
 ## 1. CLI Commands
 
 ```text
-jockyc <file.jky> [-o output] [--list-used]
+jockyc <file.jky> [-o output] [--registry <dir>] [--list-used]
 jocky <file.jky>
 jocky check <file.jky>
 jocky resolve <file.jky> [--registry <dir>]
@@ -17,7 +17,7 @@ scan_registry <dir>
 
 | Command | Behavior |
 | ------- | -------- |
-| `jockyc <file.jky> [-o output] [--list-used]` | Compile: parse, check, resolve the tree-shaken script closure, embed it, link to a standalone binary at `output` (default `./a.out`). `--list-used` prints the resolved function list and exits without linking. |
+| `jockyc <file.jky> [-o output] [--registry <dir>] [--list-used]` | Phase 6 compile/package path: parse, resolve, bound-check, bind, gate, shake, SHA-256 freshness-check, embed, and link a standalone Linux binary at `output` (default `./a.out`). `--list-used` prints ordered function/digest pairs without linking. The Phase 6 artifact inventories and extracts embedded scripts; execution and manifests begin in Phase 7. |
 | `jocky <file.jky>` | Interpret: same front end and checks, but execute directly against the filesystem registry with no compile step. Manifest semantics identical to the compiled path (parity). Also supports `jocky check <file.jky>` (parse + check only) for the demo's first beat. |
 | `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here — that is `jocky gate` (Phase 4). |
 | `jocky gate <file.jky> [--registry <dir>]` | Phase 4 authorization verdict: lex → parse → resolve → bind (exactly one `case`, `BindingError` otherwise) → fail-closed gate over every resolved call's recorded capability. Prints `ALLOWED: N calls authorized under case '<name>'` with the per-call list (exit 0), or `DENIED: N violation(s) under case '<name>'` with one `<file>:<line>:<col>` denial line per violating call naming function + required capability + case (exit 1). Binder-stage refusals print `error: <file>: <message> (case binding)`. Full record in `wiki/13-phase4-capability-gate.md`. |
@@ -229,3 +229,22 @@ Phase 4 binder can distinguish "field never written" (bind-time refusal)
 from "field written as `[]`" (binds fine, gate denies). The frozen
 `jocky check` printer does not render the flag. Details and fixture
 proof in `wiki/13-phase4-capability-gate.md`.
+
+
+## 6. Phase 6 Embedding Contract
+
+The scanner-populated `ScriptMetadata.source_sha256` is the digest of the
+script bytes at index time and is serialized as `source_sha256` in registry
+JSON. The embedder must read each shaken path again and compare its digest to
+that value. Missing digests, unreadable sources, or mismatches are build
+failures; no partial artifact is linked.
+
+The generated artifact preserves `ShakeResult::scripts` order and exposes:
+
+```text
+standalone --list-embedded
+standalone --extract <function>
+```
+
+The first prints function, SHA-256, and byte length. The second writes the exact
+embedded bytes to stdout. Neither command executes a script in Phase 6.

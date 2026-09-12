@@ -41,6 +41,9 @@ struct ScriptMetadata {
     int timeout_seconds = 30;  // default when the header omits the key
     std::vector<std::string> depends_on;
     std::string script_path;  // as scanned (relative when root is relative)
+    // SHA-256 captured when the registry entry was scanned. Phase 6 rechecks
+    // it immediately before embedding to refuse source drift.
+    std::string source_sha256;
 };
 
 struct ScanResult {

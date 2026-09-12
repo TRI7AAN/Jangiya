@@ -24,6 +24,7 @@
 // or directly at the scan root are validated without the folder check.
 
 #include "jocky/stdlib/script_metadata.hpp"
+#include "jocky/crypto/sha256.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -430,6 +431,13 @@ ScanResult scan_registry_dir(const std::string& root) {
         meta.description = description;
         meta.capability = capability;
         meta.script_path = file.path;
+        try {
+            meta.source_sha256 = sha256_file(file.path);
+        } catch (const std::exception& ex) {
+            result.rejections.push_back(file.path + ": " + ex.what());
+            continue;
+        }
+
 
         bool inputs_ok = true;
         for (const std::string& item : split_list(inputs_raw)) {
@@ -596,6 +604,8 @@ std::string registry_to_json(const ScanResult& result) {
             out += "\"" + json_escape(dep) + "\"";
         }
         out += "]";
+        out += ",\"source_sha256\":\"" +
+               json_escape(meta.source_sha256) + "\"";
         out += ",\"script_path\":\"" + json_escape(meta.script_path) + "\"}";
     }
     out += "]}";

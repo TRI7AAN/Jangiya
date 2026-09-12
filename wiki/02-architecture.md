@@ -129,3 +129,12 @@ headers and naming violations), and feeds both the semantic checker and
 the resolver. Per compilation (or interpreted run), only the functions the
 `.jky` file actually calls — plus their transitive dependencies — are
 embedded or loaded; everything else stays out.
+
+
+## Phase 6 implementation status
+
+`jockyc` now implements the static compile/package path through link. Registry
+entries carry scan-time SHA-256; the embedder rechecks each shaken source and
+refuses drift. The standalone Linux artifact needs no registry to inventory or
+extract its exact embedded closure. Script dispatch, runtime capability checks,
+evidence-path enforcement, timeouts, and manifests remain Phase 7.
