@@ -2,7 +2,7 @@
 
 # SIH WINNER 2026
 
-## JOCKY — Phases 1–7 Complete, Phase 8 Current
+## JOCKY — Phases 1–8 Complete, Phase 9 Current
 
 **JOCKY** is a C++20 compiler/runtime for a forensic domain-specific
 language (`.jky` files), built for **SIH26148 (NTRO, SIH 2026,
@@ -17,7 +17,7 @@ only), and ends by appending to `logs.md`.
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
 | `roadmap.md` | Full plan, Phases 0–11 Track A + Track B IDE shell (Phases 12–16, changes rarely) |
-| `implementationplan.md` | Current phase detail only (Phase 8: interpreter + parity) |
+| `implementationplan.md` | Current phase detail only (Phase 9: real registry finalization) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
 | `wiki/01-prd.md` | Product requirements + the permanent no-evasion boundary |
@@ -55,6 +55,7 @@ only), and ends by appending to `logs.md`.
 | `tests/phase5.5/` | Six control-flow fixtures (if-else/for-literal/for-const/for-callbound/while/nested) for all four commands |
 | `tests/phase6/` | SHA-256 drift unit test and `jockyc` integration test (exact set/order, extraction, denied gate, registry independence, zero scripts) |
 | `tests/phase7/` | Shared-runtime safety suite and registry-deleted standalone execution integration |
+| `tests/phase8/` | Six parity fixtures (direct/if-data/for/while-natural/while-capped/nested) + `run_parity.sh`/`parity_diff.py` harness proving compiled and interpreted manifests agree |
 | `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `shared/` (testssl wrapper + vendored `testssl.sh`) — 7 headers present, 41 pending Phase 9 |
 | `_quarantine/` | Origin-unconfirmed files (CSV/JSON reference data), excluded from registry/scanner/docs pending owner confirmation |
 
@@ -99,12 +100,18 @@ only), and ends by appending to `logs.md`.
   ceiling), shared dispatch path, manifest schema 0.2.0, registry_version
   flag, hostile fixtures green — complete, logged in
   `wiki/21-phase7-5-control-flow.md`
-- [ ] Phase 8 (current): `jocky` interpreter + compiled/interpreted parity
-  — see `implementationplan.md`
+- [x] Phase 8: `jocky <file.jky>` no-compile interpreter reusing the
+  shared Phase 7.5 executor (filesystem sourcing via
+  `load_registry_runtime_call` the only structural difference) +
+  compiled/interpreted parity harness (exact match minus timing fields,
+  script_sha256 asserted separately), 6/6 control-flow fixtures green —
+  complete, logged in `wiki/22-phase8-interpreter-parity.md`
+- [ ] Phase 9 (current): real registry finalization — see
+  `implementationplan.md`
 
 ### Track plan (A: toolchain, B: Java IDE shell)
 
-Track A is the forensic toolchain (Phases 5–7 complete, Phase 8 current
+Track A is the forensic toolchain (Phases 5–8 complete, Phase 9 current
 per Status above). Track B is a parallel Java IDE shell over the CLI —
 it starts immediately on the existing `jocky`/`jockyc` commands and never
 blocks Track A:

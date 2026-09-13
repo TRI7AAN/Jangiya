@@ -1,0 +1,18 @@
+# Fixture 2: branch outcome from a real predicate over actual call
+# output (emit_lines prints "one\ntwo\nthree\n", so `contains "two"`
+# is true from data, not from a literal). Both paths must take the
+# then-branch, execute the same calls, and leave the else (poison,
+# exit 7) completely absent.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let t = call jky_recon_emit_lines(target: "q");
+  if (t contains "two") {
+    let a = call jky_recon_true_branch(target: "y");
+    a | emit fin;
+  } else {
+    let b = call jky_recon_false_branch(target: "z");
+    b | emit fin;
+  }
+}

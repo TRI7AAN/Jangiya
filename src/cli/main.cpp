@@ -1,9 +1,12 @@
 // jocky CLI — Phase 1 skeleton + Phase 3 `resolve` + Phase 4 `gate`
-// + Phase 5 `shake`.
+// + Phase 5 `shake` + Phase 8 interpreted `run` (bare `jocky <file.jky>`).
 // Usage: jocky check <file.jky>
 //        jocky resolve <file.jky> [--registry <dir>]
 //        jocky gate <file.jky> [--registry <dir>]
 //        jocky shake <file.jky> [--registry <dir>]
+//        jocky <file.jky> [--registry <dir>] [--output-root <dir>]
+//             [--manifest <path>] [--max-executions <n>]
+//             [--max-iterations <n>]
 // `check` lexes, parses, and pretty-prints the AST (output frozen since
 // Phase 1 — do not change it; baselines in wiki/10, wiki/11, and wiki/14
 // depend on it). `resolve` additionally runs the Phase 3 call resolver
@@ -18,15 +21,20 @@
 // on usage errors or lex/parse/resolve/bound/bind/gate/shake failures
 // (diagnostics on stderr in file:line:col style).
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <variant>
 
 #include "jocky/ast/ast.hpp"
+#include "jocky/crypto/sha256.hpp"
 #include "jocky/fir/script_resolver.hpp"
 #include "jocky/lexer/lexer.hpp"
+#include "jocky/runtime/control_flow_executor.hpp"
 #include "jocky/semantic/bound_checker.hpp"
 #include "jocky/parser/parser.hpp"
 #include "jocky/policy/capability_gate.hpp"
@@ -619,7 +627,264 @@ int run_shake(const std::string& path, const std::string& registry_dir) {
     return 0;
 }
 
+// Phase 8 interpreter: run a .jky program directly against the
+// filesystem registry — no compile step, no embedding, no shake step
+// (shaking decides what to EMBED; with nothing embedded it is
+// meaningless, and skipping it is deliberate — the gate already limits
+// execution to authorized calls, and every attempt is still
+// capability-rechecked at dispatch).
+//
+// The ONLY structural difference from a compiled binary is call
+// sourcing: each authorized call is materialized through
+// load_registry_runtime_call (bytes read from stat_scripts/ on disk)
+// instead of an embedded byte buffer. Predicate evaluation, if/for/
+// while semantics, ceilings, sandboxing, and the manifest writer are
+// the shared, unmodified Phase 7.5 code path (execute_plan_tree over
+// plan.program_source), so the two modes cannot drift.
+const jocky::ScriptMetadata* find_registry_function(
+    const std::vector<jocky::ScriptMetadata>& registry,
+    const std::string& function) {
+    for (const jocky::ScriptMetadata& meta : registry) {
+        if (meta.function == function) {
+            return &meta;
+        }
+    }
+    return nullptr;
+}
+
+// Declared `write` targets in rules then investigations (walker order)
+// — the same collection the compiler emits into build_plan, so both
+// paths stage and promote the same outputs.
+std::vector<std::string> collect_run_outputs(const jocky::Program& prog) {
+    std::vector<std::string> outputs;
+    auto collect = [&](const jocky::PipelineStmt& stmt) {
+        for (const jocky::PipelineStep& step : stmt.expr.steps) {
+            if (step.op.kind == jocky::PipelineOp::Kind::Write) {
+                outputs.push_back(step.op.write_path);
+            }
+        }
+    };
+    for (const jocky::RuleDecl& rule : prog.rules) {
+        jocky::walker::for_each_pipeline_stmt_in_block(rule.body, collect);
+    }
+    for (const jocky::InvestigationDecl& inv : prog.investigations) {
+        jocky::walker::for_each_pipeline_stmt_in_block(inv.body, collect);
+    }
+    return outputs;
+}
+
+int run_execute(const std::string& path,
+                const std::vector<std::string>& raw_args) {
+    // Flag defaults mirror the compiled standalone's `run` branch
+    // exactly (same names, same shared RuntimeOptions defaults).
+    std::string registry_dir = "stat_scripts/";
+    std::string output_root = "out";
+    std::string manifest_path;
+    std::optional<std::size_t> max_executions;
+    std::optional<std::size_t> max_iterations;
+    try {
+        for (std::size_t i = 0; i < raw_args.size(); ++i) {
+            const std::string& arg = raw_args[i];
+            auto need_value = [&](const char* flag) -> std::string {
+                if (i + 1 >= raw_args.size()) {
+                    throw std::runtime_error(
+                        std::string("unknown or incomplete run option '") +
+                        arg + "' (flag '" + flag + "' needs a value)");
+                }
+                return raw_args[++i];
+            };
+            if (arg == "--registry") {
+                registry_dir = need_value("--registry");
+            } else if (arg == "--output-root") {
+                output_root = need_value("--output-root");
+            } else if (arg == "--manifest") {
+                manifest_path = need_value("--manifest");
+            } else if (arg == "--max-executions") {
+                max_executions = static_cast<std::size_t>(
+                    std::stoull(need_value("--max-executions")));
+            } else if (arg == "--max-iterations") {
+                max_iterations = static_cast<std::size_t>(
+                    std::stoull(need_value("--max-iterations")));
+            } else {
+                throw std::runtime_error(
+                    std::string("unknown or incomplete run option '") + arg +
+                    "'");
+            }
+        }
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    if (manifest_path.empty()) {
+        manifest_path =
+            (std::filesystem::path(output_root) / "manifest.json").string();
+    }
+
+    jocky::Program prog;
+    std::string source;
+    try {
+        source = read_file(path);
+        jocky::Lexer lexer(source);
+        std::vector<jocky::Token> tokens = lexer.tokenize();
+        jocky::Parser parser(std::move(tokens));
+        prog = parser.parse_program();
+    } catch (const jocky::LexError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::ParseError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const std::exception& ex) {
+        std::cerr << "error: " << ex.what() << "\n";
+        return 1;
+    }
+    jocky::ScanResult scanned = jocky::scan_registry_dir(registry_dir);
+    if (!scanned.rejections.empty()) {
+        for (const std::string& rejection : scanned.rejections) {
+            std::cerr << "REJECT " << rejection << "\n";
+        }
+        std::cerr << "error: cannot execute against a rejected registry "
+                     "index (fix headers or rebuild the registry)\n";
+        return 1;
+    }
+    try {
+        jocky::ResolvedProgram resolved =
+            jocky::resolve_program(prog, scanned.registry);
+        jocky::check_bounds(prog);
+        jocky::BoundProgram bound =
+            jocky::bind_program(prog, std::move(resolved));
+        jocky::GateResult gate = jocky::check_gate(bound);
+        if (!gate.allowed) {
+            // Same verdict format as `jocky gate`: execution never runs
+            // on a denied gate (fail-closed), and the denial is the error.
+            print_gate(path, gate);
+            return 1;
+        }
+        // Build the runtime plan exactly the way the compiler's
+        // build_plan does — same case, capabilities, evidence, outputs,
+        // ceiling, source text, and authorized calls in the same order.
+        // Only the script bytes differ: read from disk here (with the
+        // scanner digest preserved, so drift becomes a manifest-logged
+        // integrity_denied at dispatch) instead of embedded buffers.
+        jocky::RuntimePlan plan;
+        plan.case_id = gate.case_name;
+        plan.program_sha256 = jocky::sha256_bytes(source);
+        plan.program_source = source;
+        if (bound.bound_case.max_while_iterations.has_value()) {
+            plan.max_while_iterations = static_cast<std::size_t>(
+                *bound.bound_case.max_while_iterations);
+        }
+        for (const std::string& capability : bound.bound_case.capabilities) {
+            plan.allowed_capabilities.push_back(capability);
+        }
+        for (const jocky::EvidenceDecl& evidence : prog.evidence) {
+            plan.evidence.push_back({evidence.name, evidence.adapter,
+                                     evidence.path});
+        }
+        for (const std::string& output : collect_run_outputs(prog)) {
+            plan.declared_outputs.push_back(output);
+        }
+        for (const jocky::ResolvedCall& resolved_call : gate.authorized) {
+            const jocky::ScriptMetadata* meta =
+                find_registry_function(scanned.registry,
+                                       resolved_call.function);
+            if (meta == nullptr) {
+                // Resolve passed on this same scan, so absence means the
+                // registry changed mid-run: refuse, never guess.
+                std::cerr << "error: " << path << ": cannot execute "
+                          << "authorized call '" << resolved_call.function
+                          << "' (no registry entry; registry changed after "
+                             "scan?)\n";
+                return 1;
+            }
+            std::vector<jocky::RuntimeArgument> args;
+            for (const jocky::ResolvedArg& resolved_arg :
+                 resolved_call.args) {
+                args.push_back({resolved_arg.name,
+                                resolved_arg.declared_type,
+                                resolved_arg.value, resolved_arg.concrete});
+            }
+            jocky::RuntimeCall call =
+                jocky::load_registry_runtime_call(*meta, std::move(args));
+            call.line = resolved_call.line;
+            call.col = resolved_call.col;
+            plan.calls.push_back(std::move(call));
+        }
+        jocky::RuntimeOptions options;
+        options.executable_path = jocky::runtime_detail::self_executable();
+        options.working_directory =
+            std::filesystem::current_path().string();
+        options.output_root = output_root;
+        options.manifest_path = manifest_path;
+        if (max_executions.has_value()) {
+            options.max_executions = *max_executions;
+        }
+        if (max_iterations.has_value()) {
+            options.max_while_iterations = *max_iterations;
+        }
+        const jocky::DispatchResult result =
+            jocky::run_runtime_plan(plan, options);
+        std::cout << "MANIFEST " << options.manifest_path
+                  << " status=" << result.manifest.status << "\n";
+        // Human summary, grounded only in manifest facts: attempts
+        // dispatched (each loop trip dispatches independently, so trips
+        // are included in the count), per-function breakdown, capped
+        // loops called out, final status.
+        std::map<std::string, std::size_t> per_function;
+        std::size_t capped_loops = 0;
+        for (const jocky::ExecutionRecord& entry :
+             result.manifest.executions) {
+            if (entry.outcome == "while_ceiling") {
+                ++capped_loops;
+            } else {
+                ++per_function[entry.function];
+            }
+        }
+        std::cout << "EXECUTED " << result.manifest.executions.size()
+                  << " calls";
+        bool first = true;
+        for (const auto& [function, count] : per_function) {
+            std::cout << (first ? " (" : ", ") << function << " x" << count;
+            first = false;
+        }
+        if (!per_function.empty()) {
+            std::cout << ")";
+        }
+        if (capped_loops > 0) {
+            std::cout << " [" << capped_loops << " loop(s) capped at "
+                      << "ceiling; see while_ceiling entries]";
+        }
+        std::cout << ", status=" << result.manifest.status << "\n";
+        return result.exit_code;
+    } catch (const jocky::SemanticError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << "\n";
+        return 1;
+    } catch (const jocky::BoundCheckError& ex) {
+        std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                  << ": " << ex.what() << " (bound check)\n";
+        return 1;
+    } catch (const jocky::BindingError& ex) {
+        if (ex.line > 0) {
+            std::cerr << "error: " << path << ":" << ex.line << ":" << ex.col
+                      << ": " << ex.what() << " (case binding)\n";
+        } else {
+            std::cerr << "error: " << path << ": " << ex.what()
+                      << " (case binding)\n";
+        }
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
+    // Sandbox children re-exec this binary (see run_execute: options
+    // point at self_executable()). Handle before subcommand dispatch —
+    // this path never parses .jky, never touches the registry.
+    if (argc > 1 && std::string(argv[1]) == "--jocky-sandbox-child") {
+        return jocky::runtime_detail::sandbox_child_main(argc, argv);
+    }
     if (argc == 3 && std::string(argv[1]) == "check") {
         return run_check(argv[2]);
     }
@@ -641,9 +906,28 @@ int main(int argc, char** argv) {
             (argc == 5) ? argv[4] : "stat_scripts/";
         return run_shake(argv[2], registry);
     }
+    // Bare `jocky <file.jky>` (Phase 8 interpreter). Any first argument
+    // that is not a known subcommand is a program path; remaining
+    // arguments are run flags parsed by run_execute. (A file literally
+    // named check/resolve/gate/shake keeps its old meaning — passing it
+    // bare still prints usage, as before.)
+    if (argc >= 2 && std::string(argv[1]) != "check" &&
+        std::string(argv[1]) != "resolve" &&
+        std::string(argv[1]) != "gate" &&
+        std::string(argv[1]) != "shake" &&
+        std::string(argv[1]).rfind("-", 0) != 0) {
+        std::vector<std::string> run_args;
+        for (int i = 2; i < argc; ++i) {
+            run_args.push_back(argv[i]);
+        }
+        return run_execute(argv[1], run_args);
+    }
     std::cerr << "usage: jocky check <file.jky>\n"
                  "       jocky resolve <file.jky> [--registry <dir>]\n"
                  "       jocky gate <file.jky> [--registry <dir>]\n"
-                 "       jocky shake <file.jky> [--registry <dir>]\n";
+                 "       jocky shake <file.jky> [--registry <dir>]\n"
+                 "       jocky <file.jky> [--registry <dir>]\n"
+                 "             [--output-root <dir>] [--manifest <path>]\n"
+                 "             [--max-executions <n>] [--max-iterations <n>]\n";
     return 1;
 }

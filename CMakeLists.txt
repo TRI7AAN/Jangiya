@@ -43,3 +43,19 @@ add_test(
             $<TARGET_FILE:jockyc>
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_BINARY_DIR}/phase7-integration)
+
+# Phase 8 parity: each fixture runs once compiled (jockyc + standalone)
+# and once interpreted (jocky), then diffs the manifests with timing
+# fields excluded and script_sha256 asserted separately.
+foreach(PARITY_FIXTURE direct if_data for_literal while_natural while_capped nested)
+  add_test(
+      NAME phase8_parity_${PARITY_FIXTURE}
+      COMMAND ${BASH_PROGRAM}
+              ${CMAKE_CURRENT_SOURCE_DIR}/tests/phase8/run_parity.sh
+              $<TARGET_FILE:jocky>
+              $<TARGET_FILE:jockyc>
+              ${CMAKE_CURRENT_SOURCE_DIR}
+              ${CMAKE_CURRENT_BINARY_DIR}/phase8-parity-${PARITY_FIXTURE}
+              tests/phase8/${PARITY_FIXTURE}.jky
+              tests/phase7.5/registry)
+endforeach()

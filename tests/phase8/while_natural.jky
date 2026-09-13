@@ -1,0 +1,14 @@
+# Fixture 4: while-loop that exits naturally (zero trips) before any
+# ceiling could apply — the data-dependent condition is false from the
+# start. Both paths must succeed with only the producer entry and NO
+# while_ceiling entry anywhere.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let t = call jky_recon_emit_lines(target: "q");
+  while (t == "never-matches-this") {
+    let w = call jky_recon_true_branch(target: "v");
+    w | emit fin;
+  }
+}

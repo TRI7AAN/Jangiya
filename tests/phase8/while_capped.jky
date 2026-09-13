@@ -1,0 +1,14 @@
+# Fixture 5: while(true) deliberately hitting a case-level ceiling
+# of 4 (differs from the Phase 7.5 ceiling of 5). Both paths must stop
+# after exactly 4 body attempts with the identical while_ceiling
+# marker entry.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+  max_while_iterations: 4;
+}
+investigate t {
+  while (true) {
+    let w = call jky_recon_true_branch(target: "v");
+    w | emit fin;
+  }
+}

@@ -1,0 +1,24 @@
+# Fixture 6: the Phase 5.5 fixture-6 structure (if -> for -> if,
+# call three levels deep, poison in the outer else), replayed on the
+# hermetic Phase 7.5 fixture registry instead of live forensic scripts,
+# so parity measures control-flow semantics rather than evidence or
+# network availability. Expected: probe once, deep three times (bound
+# 3, as in the original), poison zero times — 4 entries, identically
+# ordered, in both paths.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let probe = call jky_recon_true_branch(target: "a");
+  if (probe == probe) {
+    for (int i = 0; i < 3; i++) {
+      if (probe == probe) {
+        let deep = call jky_recon_emit_lines(target: "b");
+        deep | emit fin;
+      }
+    }
+  } else {
+    let tls = call jky_recon_false_branch(target: "c");
+    tls | emit fin;
+  }
+}

@@ -1,0 +1,12 @@
+# Fixture 3: for-loop with a literal bound of 4 (differs from the
+# Phase 7.5 bound of 3). Both paths must log exactly 4 independent
+# per-iteration entries, in order.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  for (int i = 0; i < 4; i++) {
+    let x = call jky_recon_true_branch(target: "w");
+    x | emit fin;
+  }
+}

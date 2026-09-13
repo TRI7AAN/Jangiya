@@ -1,0 +1,9 @@
+# Fixture 1: baseline — one direct call, no control flow.
+# Both paths must produce the identical single-entry manifest.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let a = call jky_recon_true_branch(target: "base");
+  a | emit fin;
+}
