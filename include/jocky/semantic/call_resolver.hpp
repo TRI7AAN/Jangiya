@@ -30,6 +30,10 @@
 // tree-shaking over depends_on (Phase 5).
 
 #include <map>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -188,6 +192,9 @@ struct ResolvedArg {
     std::string declared_type;
     bool used_default = false;
     std::string default_value;  // meaningful only when used_default
+    bool concrete = false;
+    std::string value;  // canonical argv text when concrete
+
 };
 
 struct ResolvedCall {
@@ -203,6 +210,30 @@ struct ResolvedCall {
 };
 
 // Resolve one CallExpr against the registry index. Never returns a
+inline bool materialize_runtime_value(const ExprValue& value,
+                                      std::string& out) {
+    switch (value.kind) {
+        case ExprValue::Kind::String:
+            out = value.str;
+            return true;
+        case ExprValue::Kind::Int:
+            out = std::to_string(value.integer);
+            return true;
+        case ExprValue::Kind::Float: {
+            std::ostringstream text;
+            text << std::setprecision(std::numeric_limits<double>::max_digits10)
+                 << value.floating;
+            out = text.str();
+            return true;
+        }
+        case ExprValue::Kind::Bool:
+            out = value.boolean ? "true" : "false";
+            return true;
+        default:
+            return false;
+    }
+}
+
 // partial result: any failure throws SemanticError.
 inline ResolvedCall resolve_call(
     const CallExpr& call, const std::vector<ScriptMetadata>& registry) {
@@ -254,6 +285,8 @@ inline ResolvedCall resolve_call(
             }
             out.used_default = true;
             out.default_value = param.default_value;
+            out.concrete = true;
+            out.value = param.default_value;
             resolved.args.push_back(std::move(out));
             continue;
         }
@@ -264,6 +297,8 @@ inline ResolvedCall resolve_call(
                     "' of function '" + name + "': declared '" + param.type +
                     "' but got " + expr_kind_name(*provided->value));
         }
+        out.concrete =
+            materialize_runtime_value(*provided->value, out.value);
         resolved.args.push_back(std::move(out));
     }
     for (const CallExpr::NamedArg& arg : call.args) {

@@ -17,7 +17,7 @@ scan_registry <dir>
 
 | Command | Behavior |
 | ------- | -------- |
-| `jockyc <file.jky> [-o output] [--registry <dir>] [--list-used]` | Phase 6 compile/package path: parse, resolve, bound-check, bind, gate, shake, SHA-256 freshness-check, embed, and link a standalone Linux binary at `output` (default `./a.out`). `--list-used` prints ordered function/digest pairs without linking. The Phase 6 artifact inventories and extracts embedded scripts; execution and manifests begin in Phase 7. |
+| `jockyc <file.jky> [-o output] [--registry <dir>] [--list-used]` | Phase 6 compile/package path: parse, resolve, bound-check, bind, gate, shake, SHA-256 freshness-check, embed, and link a standalone Linux binary at `output` (default `./a.out`). `--list-used` prints ordered function/digest pairs without linking. The artifact inventories/extracts embedded scripts and supports `run` through the Phase 7 isolated dispatcher without a live registry. |
 | `jocky <file.jky>` | Interpret: same front end and checks, but execute directly against the filesystem registry with no compile step. Manifest semantics identical to the compiled path (parity). Also supports `jocky check <file.jky>` (parse + check only) for the demo's first beat. |
 | `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here — that is `jocky gate` (Phase 4). |
 | `jocky gate <file.jky> [--registry <dir>]` | Phase 4 authorization verdict: lex → parse → resolve → bind (exactly one `case`, `BindingError` otherwise) → fail-closed gate over every resolved call's recorded capability. Prints `ALLOWED: N calls authorized under case '<name>'` with the per-call list (exit 0), or `DENIED: N violation(s) under case '<name>'` with one `<file>:<line>:<col>` denial line per violating call naming function + required capability + case (exit 1). Binder-stage refusals print `error: <file>: <message> (case binding)`. Full record in `wiki/13-phase4-capability-gate.md`. |
@@ -63,44 +63,49 @@ validator, resolver, and runtime.
 
 ## 3. Evidence Integrity Manifest Schema
 
-Emitted on every run (success, failure, or timeout — no unlogged
-execution).
+Emitted atomically on every run. An execution entry is persisted as
+`started` before child spawn, then updated to a terminal outcome.
 
 ```json
 {
   "manifest_version": "0.1.0",
   "case_id": "incident_case_01",
-  "script_sha256": "<sha256 of the .jky source>",
+  "script_sha256": "<sha256 of .jky source>",
   "runtime_version": "jocky 0.1.0",
-  "run_start_utc": "2026-09-11T00:00:00Z",
-  "run_end_utc": "2026-09-11T00:01:12Z",
-  "authorization": { "case": "incident_case_01",
-    "allowed_capabilities": ["netforensics.pcap.read"] },
+  "run_start_utc": "2026-09-13T00:00:00Z",
+  "run_end_utc": "2026-09-13T00:00:03Z",
+  "status": "success",
+  "authorization": {
+    "case": "incident_case_01",
+    "allowed_capabilities": ["netforensics.pcap.read"]
+  },
   "inputs": [
-    { "path": "evidence/capture.pcap", "sha256": "<hex>",
-      "bytes": 1048576, "adapter": "pcap" }
+    {"name": "ev", "adapter": "pcap", "path": "/case/capture.pcap",
+     "sha256": "<hex>", "bytes": 1048576}
   ],
   "outputs": [
-    { "path": "out/incident_report.md", "sha256": "<hex>", "bytes": 4096 }
+    {"name": "", "adapter": "", "path": "/case/out/flows.csv",
+     "sha256": "<hex>", "bytes": 4096}
   ],
   "executions": [
-    { "function": "jky_netforensics_extract_flows",
-      "script_sha256": "<hex of embedded/registry script>",
-      "args": { "pcap_path": "evidence/capture.pcap", "bpf": "tcp port 443" },
-      "exit_code": 0,
-      "start_utc": "2026-09-11T00:00:05Z",
-      "end_utc": "2026-09-11T00:00:47Z",
-      "stdout_sha256": "<hex>",
-      "timed_out": false }
-  ]
+    {"function": "jky_netforensics_extract_flows",
+     "capability": "netforensics.pcap.read",
+     "script_sha256": "<hex>",
+     "args": {"pcap_path": "/case/capture.pcap"},
+     "outcome": "success", "exit_code": 0, "timed_out": false,
+     "duration_ms": 120, "stdout": "", "stderr": ""}
+  ],
+  "errors": []
 }
 ```
 
-Per-script-execution entries carry: `function`, `script_sha256`, `args`,
-`exit_code`, `start_utc`, `end_utc`, `stdout_sha256`, `timed_out`.
-Capability denials are recorded as entries with a denial status rather
-than executed. `jocky verify` re-hashes `inputs[]`/`outputs[]` and checks
-every entry for completeness.
+Terminal execution outcomes are `success`, `failure`, `timeout`,
+`capability_denied`, `validation_denied`, `integrity_denied`,
+`evidence_write_denied`, `ceiling_denied`, or
+`dispatcher_failure`. A canonical output/evidence overlap or output escape
+sets the run to `preflight_failed` before execution. File hashes are
+SHA-256; directory hashes cover the sorted relative-path, child-hash, and byte
+inventory. Full implementation record: `wiki/20-phase7-runtime.md`.
 
 ## 4. @jocky: Script Metadata Header Schema
 
@@ -244,7 +249,10 @@ The generated artifact preserves `ShakeResult::scripts` order and exposes:
 ```text
 standalone --list-embedded
 standalone --extract <function>
+standalone run [--output-root dir] [--manifest path] [--max-executions n]
 ```
 
-The first prints function, SHA-256, and byte length. The second writes the exact
-embedded bytes to stdout. Neither command executes a script in Phase 6.
+The first prints function, SHA-256, and byte length. The second writes exact
+embedded bytes to stdout. `run` builds the authorized Phase 7 runtime plan,
+rechecks it at dispatch, executes in isolated per-call roots, and writes the
+integrity manifest.

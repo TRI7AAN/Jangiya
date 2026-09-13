@@ -53,15 +53,18 @@
   rejection) — see `wiki/13-phase4-capability-gate.md` for the exact
   boundary. The `policy/` include directory now exists (home of the gate)
   for future policy checks to live beside.
-- **Tree-shaking resolver (Phase 5, current):** Computes the exact stdlib closure
+- **Tree-shaking resolver (Phase 5, built):** Computes the exact stdlib closure
   for the FIR — directly called functions plus transitive `depends_on` —
   so compilations embed the minimum set. Surfaced via `--list-used`.
-- **C++ runtime (Phases 6–7):** Evidence adapters (read-only
-  normalization), the correlation engine (`correlate ... within ... on
-  ...`), and the sandboxed script dispatcher (capability gate,
-  timeout enforcement, stdout capture, SHA-256 hashing, per-execution
-  manifest entries). See `wiki/03-graph-schema.md` and
-  `wiki/04-ingestion-pipeline.md`.
+- **C++ runtime (Phase 7 dispatcher built):**
+  `include/jocky/runtime/dispatcher.hpp` is shared by embedded and
+  filesystem-registry calls. It independently rechecks capability, concrete
+  argument types, and script SHA-256; passes argv without command-string
+  interpolation; enters per-call user/network/PID namespaces and an isolated
+  root; snapshots inputs; stages outputs; enforces timeout/process-group and
+  execution ceilings; and atomically logs every outcome. Pipeline/table and
+  control-flow evaluation moves to Phase 8. Full record:
+  `wiki/20-phase7-runtime.md`.
 
 ## 2. The Two Toolchain Paths
 
@@ -70,7 +73,7 @@ manifest semantics — parity is a release requirement (Phase 8).
 
 |                    | `jockyc` (compile)                          | `jocky` (interpret)                              |
 | ------------------ | ------------------------------------------- | ------------------------------------------------ |
-| Command            | `jockyc <file.jky> [-o output] [--list-used]` | `jocky <file.jky>`                             |
+| Command            | `jockyc <file.jky> [-o output] [--list-used]`, then `standalone run` | `jocky <file.jky>`                             |
 | Registry use       | Resolved at compile time                    | Resolved at run time from the filesystem registry |
 | Scripts            | Tree-shaken closure **embedded** in the binary (Phase 6) | Loaded from disk per `call`, hash-logged per execution |
 | Output             | Standalone binary, no registry needed at run time | Direct execution, no compile step |
@@ -131,10 +134,12 @@ the resolver. Per compilation (or interpreted run), only the functions the
 embedded or loaded; everything else stays out.
 
 
-## Phase 6 implementation status
+## Phase 7 implementation status
 
-`jockyc` now implements the static compile/package path through link. Registry
-entries carry scan-time SHA-256; the embedder rechecks each shaken source and
-refuses drift. The standalone Linux artifact needs no registry to inventory or
-extract its exact embedded closure. Script dispatch, runtime capability checks,
-evidence-path enforcement, timeouts, and manifests remain Phase 7.
+`jockyc` now emits a standalone Linux artifact that can inventory,
+extract, and execute its embedded direct calls after the registry is removed.
+The Phase 7 dispatcher uses the same manifest and isolation path for embedded
+bytes and `load_registry_runtime_call` filesystem bytes. Evidence paths
+are replaced by isolated snapshots; outputs are promoted only after successful,
+integrity-clean execution. Phase 8 adds the direct `jocky <file.jky>`
+interpreter and normalized compiled/interpreted manifest parity.

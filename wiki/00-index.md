@@ -25,5 +25,6 @@ updating the relevant wiki doc.
 | [17-control-flow.md](17-control-flow.md) | Phase 5.5 record: C-style `if`/`for`/`while` in `.jky`, three statically boundable `for` forms, shared AST walker, `requires_runtime_ceiling` Phase 7 commitment, both-branches-gated decision, six fixture runs. |
 | [18-project-alignment-audit.md](18-project-alignment-audit.md) | Whole-project SIH26148 alignment audit: verified implementation state, literal-PS mapping, gaps, and recommended order. |
 | [19-phase6-embedding.md](19-phase6-embedding.md) | Phase 6 record: scan/embed SHA-256 freshness, exact closure packaging, `jockyc`, standalone artifact behavior, digests, and verification. |
+| [20-phase7-runtime.md](20-phase7-runtime.md) | Phase 7 record: isolated shared dispatcher, runtime rechecks, evidence snapshots, output staging, complete manifests, hashes, and verification. |
 | [grammar.md](grammar.md) | Authoritative `.jky` syntax reference with usage: lexical rules, all four declarations, heads, predicates, all ten pipeline operators, correlate windows, types, control flow, per-command validation, verified examples. |
 | [keywords.md](keywords.md) | Reserved-word roll: all 150 keywords (42 `.jky` + 38 C + 52 C++ + 18 Java), usage table, deliberate exclusions, reservation record. |

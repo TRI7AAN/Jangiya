@@ -2,7 +2,7 @@
 
 # SIH WINNER 2026
 
-## JOCKY — Phases 1–6 Complete, Phase 7 Current
+## JOCKY — Phases 1–7 Complete, Phase 8 Current
 
 **JOCKY** is a C++20 compiler/runtime for a forensic domain-specific
 language (`.jky` files), built for **SIH26148 (NTRO, SIH 2026,
@@ -17,7 +17,7 @@ only), and ends by appending to `logs.md`.
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
 | `roadmap.md` | Full plan, Phases 0–11 (changes rarely) |
-| `implementationplan.md` | Current phase detail only (Phase 7: runtime dispatcher + integrity manifest) |
+| `implementationplan.md` | Current phase detail only (Phase 8: interpreter + parity) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
 | `wiki/01-prd.md` | Product requirements + the permanent no-evasion boundary |
@@ -41,18 +41,20 @@ only), and ends by appending to `logs.md`.
 | `wiki/17-control-flow.md` | Phase 5.5 record: C-style `if`/`for`/`while`, three boundable `for` forms, shared AST walker, runtime-ceiling commitment, six fixture runs |
 | `wiki/18-project-alignment-audit.md` | Whole-project SIH26148 alignment audit with verified status, gaps, and recommended order |
 | `wiki/19-phase6-embedding.md` | Phase 6 record: SHA-256 freshness, exact embedding, `jockyc`, standalone artifacts, and verification |
-| `include/jocky/` | C++20 frontend + Phase 6 SHA-256/embedder: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` |
+| `wiki/20-phase7-runtime.md` | Phase 7 record: isolated dispatcher, runtime rechecks, evidence/output staging, complete manifests, hashes, and verification |
+| `include/jocky/` | C++20 frontend + Phase 6 embedding + Phase 7 runtime: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` + `runtime/dispatcher.hpp` |
 | `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) + `jocky shake` (gate → dependency-ordered script list) |
 | `src/compiler/main.cpp` | `jockyc` static chain, generated standalone source, and shell-free host-compiler invocation |
 | `src/stdlib/metadata_scanner.cpp` | `scan_registry` engine (header parse, validation, JSON index, scan-time SHA-256) |
 | `tools/scan_registry.cpp` | `scan_registry <dir>` CLI driver |
-| `CMakeLists.txt` | CMake 3.20+, C++20, `jocky`, `jockyc`, `scan_registry`, and Phase 6 CTest targets |
+| `CMakeLists.txt` | CMake 3.20+, C++20, `jocky`, `jockyc`, `scan_registry`, and Phase 6/7 CTest targets |
 | `samples/sample.jky` | Sample exercising every grammar construct (parse-level fixture; intentionally unresolved — see `wiki/12`) |
 | `tests/phase3/` | Six `call` resolution fixtures (unknown/missing/default-ok/mismatch/extra/correct) for `jocky resolve` |
 | `tests/phase4/` | Six gate fixtures (zero/duplicate cases, field-absent vs field-empty, exact-allow, partial-allow with both denials) for `jocky gate` |
 | `tests/phase5/` | Five shake fixtures (direct/chain/diamond/cycle/mixed) + throwaway 12-script `fixtures/registry/` for `jocky shake` |
 | `tests/phase5.5/` | Six control-flow fixtures (if-else/for-literal/for-const/for-callbound/while/nested) for all four commands |
 | `tests/phase6/` | SHA-256 drift unit test and `jockyc` integration test (exact set/order, extraction, denied gate, registry independence, zero scripts) |
+| `tests/phase7/` | Shared-runtime safety suite and registry-deleted standalone execution integration |
 | `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `shared/` (testssl wrapper + vendored `testssl.sh`) — 7 headers present, 41 pending Phase 9 |
 | `_quarantine/` | Origin-unconfirmed files (CSV/JSON reference data), excluded from registry/scanner/docs pending owner confirmation |
 
@@ -88,8 +90,12 @@ only), and ends by appending to `logs.md`.
 - [x] Phase 6: scan-time SHA-256 + embed-time freshness refusal, exact-closure
   embedding, and `jockyc` standalone Linux artifact generation — complete,
   logged in `wiki/19-phase6-embedding.md`
-- [ ] Phase 7 (current): sandboxed runtime dispatcher + evidence integrity
-  manifest logging — see `implementationplan.md`
+- [x] Phase 7: shared isolated runtime, runtime capability/type/hash rechecks,
+  argv-only dispatch, evidence snapshots, staged output promotion, timeouts,
+  execution ceilings, and complete integrity manifests — complete, logged in
+  `wiki/20-phase7-runtime.md`
+- [ ] Phase 8 (current): `jocky` interpreter + compiled/interpreted parity
+  — see `implementationplan.md`
 
 ### Safety boundary (permanent, see `AGENTS.md` §2)
 
