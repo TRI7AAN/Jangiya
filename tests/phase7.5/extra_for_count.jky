@@ -1,0 +1,13 @@
+# Supplemental: count(table) bound form at runtime — emit_lines
+# prints 3 lines, so the body attempts exactly 3 times (plus the one
+# attempt producing t itself).
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let t = call jky_recon_emit_lines(target: "q");
+  for (int i = 0; i < count(t); i++) {
+    let c = call jky_recon_true_branch(target: "w");
+    c | emit fin;
+  }
+}

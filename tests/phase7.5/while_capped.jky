@@ -1,0 +1,13 @@
+# Fixture 4: while(true) with no natural exit and a case-level
+# ceiling of 5 — must stop after 5 body attempts, log a distinct
+# while_ceiling entry (not silent truncation), and terminate fast.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+  max_while_iterations: 5;
+}
+investigate t {
+  while (true) {
+    let w = call jky_recon_true_branch(target: "v");
+    w | emit fin;
+  }
+}

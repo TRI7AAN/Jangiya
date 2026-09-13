@@ -105,9 +105,12 @@ case incident_01 {
 }
 ```
 
-- The block takes exactly one field, `allowed_capabilities`, whose value
-  is a `[`-bracketed, comma-separated string list ending with `;`. Any
-  other field name is rejected: `unknown case field 'analyst'`.
+- The block takes `allowed_capabilities`, whose value
+  is a `[`-bracketed, comma-separated string list ending with `;`, plus
+  (since Phase 7.5) an optional `max_while_iterations: <non-negative
+  int>;` per-case while-loop ceiling. Any other field name is rejected:
+  `unknown case field 'analyst'`. A repeated `max_while_iterations`
+  field is rejected as a duplicate.
 - Both the empty block (`case t {}`) and the empty list
   (`allowed_capabilities: [];`) parse — but they mean different things
   downstream: the parser records field *presence* on
@@ -301,7 +304,11 @@ while (f == f) {
   enclosed call.
 - `while (predicate) { … }` — any predicate, but the AST flags every node
   `requires_runtime_ceiling` (visible in `jocky check`); Phase 7 MUST
-  enforce a hard iteration cap at execution time.
+  enforce a hard iteration cap at execution time. Fulfilled in Phase 7.5:
+  the executor re-evaluates the condition per iteration under a hard
+  ceiling (default 10000, per-case `max_while_iterations`, per-run
+  `--max-iterations`), logging `while_ceiling` on breach
+  (`wiki/21-phase7-5-control-flow.md`).
 - New keywords: `if else for while int` (`int` remains a valid type name
   — `min_bytes: int` parses as before). Full record:
   `wiki/17-control-flow.md`; EBNF: `wiki/06` §5.

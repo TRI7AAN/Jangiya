@@ -68,9 +68,9 @@ Emitted atomically on every run. An execution entry is persisted as
 
 ```json
 {
-  "manifest_version": "0.1.0",
+  "manifest_version": "0.2.0",
   "case_id": "incident_case_01",
-  "script_sha256": "<sha256 of .jky source>",
+  "program_sha256": "<sha256 of .jky source>",
   "runtime_version": "jocky 0.1.0",
   "run_start_utc": "2026-09-13T00:00:00Z",
   "run_end_utc": "2026-09-13T00:00:03Z",
@@ -93,7 +93,11 @@ Emitted atomically on every run. An execution entry is persisted as
      "script_sha256": "<hex>",
      "args": {"pcap_path": "/case/capture.pcap"},
      "outcome": "success", "exit_code": 0, "timed_out": false,
-     "duration_ms": 120, "stdout": "", "stderr": ""}
+     "duration_ms": 120,
+     "start_utc": "2026-09-13T00:00:01Z",
+     "end_utc": "2026-09-13T00:00:01Z",
+     "stdout": "", "stdout_sha256": "<hex of stdout bytes>",
+     "stderr": ""}
   ],
   "errors": []
 }
@@ -101,11 +105,18 @@ Emitted atomically on every run. An execution entry is persisted as
 
 Terminal execution outcomes are `success`, `failure`, `timeout`,
 `capability_denied`, `validation_denied`, `integrity_denied`,
-`evidence_write_denied`, `ceiling_denied`, or
+`evidence_write_denied`, `ceiling_denied`, `while_ceiling` (Phase 7.5:
+a `while` loop hit its iteration ceiling — recorded on a
+`<while-loop>` marker entry, never silent truncation), or
 `dispatcher_failure`. A canonical output/evidence overlap or output escape
 sets the run to `preflight_failed` before execution. File hashes are
 SHA-256; directory hashes cover the sorted relative-path, child-hash, and byte
-inventory. Full implementation record: `wiki/20-phase7-runtime.md`.
+inventory. Schema 0.2.0 (Phase 7.5) renames top-level `script_sha256` to
+`program_sha256` (it always held the .jky hash; per-execution
+`script_sha256` is unchanged) and adds per-execution `start_utc`,
+`end_utc`, and `stdout_sha256` alongside the kept `duration_ms` and raw
+`stdout`/`stderr`. Full implementation record: `wiki/20-phase7-runtime.md`;
+Phase 7.5 corrections: `wiki/21-phase7-5-control-flow.md`.
 
 ## 4. @jocky: Script Metadata Header Schema
 
@@ -132,7 +143,8 @@ Every stdlib/registry shell script carries this header (see
 ```ebnf
 program        = { case_decl | evidence_decl | rule_decl | investigation_decl } ;
 case_decl      = "case" ident "{" { case_field } "}" ;
-case_field     = "allowed_capabilities" ":" "[" string { "," string } "]" ";" ;
+case_field     = "allowed_capabilities" ":" "[" string { "," string } "]" ";" | while_ceiling_field ;
+while_ceiling_field = "max_while_iterations" ":" int ";" ;
 evidence_decl  = "evidence" ident ":" adapter "(" string ")" ";" ;
 adapter        = "pcap" | "eventlog" | "directory" ;
 rule_decl      = "rule" ident "(" [ params ] ")" "->" type block ;
@@ -235,6 +247,15 @@ from "field written as `[]`" (binds fine, gate denies). The frozen
 `jocky check` printer does not render the flag. Details and fixture
 proof in `wiki/13-phase4-capability-gate.md`.
 
+Phase 7.5 AST note (one new optional case field): `CaseDecl` also
+carries `max_while_iterations` (`std::optional<std::int64_t>`, absent
+unless the source writes the field). Duplicate or negative values are
+parse errors. The `check` printer renders
+`max_while_iterations=<n>` only when present, so all pre-7.5 programs
+print byte-identically. The value overrides
+`RuntimeOptions::max_while_iterations` (default 10000) per plan. Full
+record in `wiki/21-phase7-5-control-flow.md`.
+
 
 ## 6. Phase 6 Embedding Contract
 
@@ -248,11 +269,15 @@ The generated artifact preserves `ShakeResult::scripts` order and exposes:
 
 ```text
 standalone --list-embedded
+standalone --registry-version
 standalone --extract <function>
-standalone run [--output-root dir] [--manifest path] [--max-executions n]
+standalone run [--output-root dir] [--manifest path] [--max-executions n] [--max-iterations n]
 ```
 
-The first prints function, SHA-256, and byte length. The second writes exact
+The first prints function, SHA-256, and byte length. `--registry-version`
+prints the aggregate closure digest (Phase 7.5, audit GAP-4). The third writes exact
 embedded bytes to stdout. `run` builds the authorized Phase 7 runtime plan,
 rechecks it at dispatch, executes in isolated per-call roots, and writes the
-integrity manifest.
+integrity manifest; `--max-iterations` overrides the while-loop iteration
+ceiling for the run (Phase 7.5). `jockyc` prints `registry_version <hex>`
+at build time.

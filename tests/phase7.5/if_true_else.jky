@@ -1,0 +1,14 @@
+# Fixture 2: literal-true condition — then-branch executes exactly
+# once, else-branch (poison, exit 7) executes zero times.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  if (true) {
+    let a = call jky_recon_true_branch(target: "y");
+    a | emit fin;
+  } else {
+    let b = call jky_recon_false_branch(target: "z");
+    b | emit fin;
+  }
+}

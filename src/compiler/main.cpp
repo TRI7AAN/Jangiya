@@ -140,10 +140,12 @@ std::size_t embedded_index(const jocky::EmbedResult& embedded,
 }
 
 void write_runner(const std::string& path, const jocky::EmbedResult& embedded,
-                  const jocky::Program& program,
-                  const jocky::BoundProgram& bound,
-                  const jocky::GateResult& gate,
-                  const std::string& source_sha256) {
+                   const jocky::Program& program,
+                   const jocky::BoundProgram& bound,
+                   const jocky::GateResult& gate,
+                   const std::string& source_sha256,
+                   const std::string& program_source,
+                   const std::string& registry_version) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out) {
         throw std::runtime_error("cannot create generated source '" + path +
@@ -151,11 +153,20 @@ void write_runner(const std::string& path, const jocky::EmbedResult& embedded,
     }
     out << "#include <filesystem>\n#include <iostream>\n"
            "#include <string>\n#include <vector>\n"
-           "#include \"jocky/runtime/dispatcher.hpp\"\n";
+           "#include \"jocky/runtime/control_flow_executor.hpp\"\n";
     for (std::size_t i = 0; i < embedded.scripts.size(); ++i) {
         write_byte_array(out, "script_" + std::to_string(i),
                          embedded.scripts[i].source);
     }
+    // Embedded .jky source as bytes (Phase 7.5: the executor re-parses
+    // this and walks the real statement tree). Byte array, not a quoted
+    // literal: cpp_string's \xNN escapes would misparse when followed by
+    // a hex-digit character.
+    write_byte_array(out, "program_source", program_source);
+    out << "static constexpr unsigned long program_source_size = "
+        << program_source.size() << "UL;\n";
+    out << "static const char* registry_version = "
+        << cpp_string(registry_version) << ";\n";
     out << "struct Unit { const char* function; const char* sha256; "
            "const unsigned char* data; unsigned long size; };\n";
     out << "static const Unit units[] = {\n";
@@ -175,7 +186,16 @@ void write_runner(const std::string& path, const jocky::EmbedResult& embedded,
     out << "static jocky::RuntimePlan build_plan() {\n"
            "  jocky::RuntimePlan plan;\n"
            "  plan.case_id = " << cpp_string(gate.case_name) << ";\n"
-           "  plan.jky_sha256 = " << cpp_string(source_sha256) << ";\n";
+           "  plan.program_sha256 = " << cpp_string(source_sha256) << ";\n"
+           "  plan.program_source.assign("
+           "reinterpret_cast<const char*>(program_source), "
+           "program_source_size);\n";
+    if (bound.bound_case.max_while_iterations.has_value()) {
+        out << "  plan.max_while_iterations = "
+            << static_cast<unsigned long long>(
+                   *bound.bound_case.max_while_iterations)
+            << "ULL;\n";
+    }
     for (const std::string& capability :
          bound.bound_case.capabilities) {
         out << "  plan.allowed_capabilities.push_back("
@@ -202,6 +222,9 @@ void write_runner(const std::string& path, const jocky::EmbedResult& embedded,
                "reinterpret_cast<const char*>(script_"
             << index << "), " << embedded.scripts[index].source.size()
             << "UL); call.timeout_seconds = " << metadata.timeout_seconds
+            // Phase 7.5: source position links the re-parsed AST call
+            // site to this planned call in the executor.
+            << "; call.line = " << call.line << "; call.col = " << call.col
             << ";\n";
         for (const jocky::ResolvedArg& arg : call.args) {
             out << "    call.args.push_back({" << cpp_string(arg.name) << ","
@@ -230,6 +253,10 @@ int main(int argc, char** argv) {
     std::cerr << "unknown embedded function: " << argv[2] << "\n";
     return 2;
   }
+  if (argc == 2 && std::string(argv[1]) == "--registry-version") {
+    std::cout << registry_version << "\n";
+    return 0;
+  }
   if (argc > 1 && std::string(argv[1]) == "run") {
     jocky::RuntimeOptions options;
     options.executable_path = jocky::runtime_detail::self_executable();
@@ -243,6 +270,9 @@ int main(int argc, char** argv) {
         options.manifest_path = argv[++i];
       } else if (arg == "--max-executions" && i + 1 < argc) {
         options.max_executions =
+            static_cast<std::size_t>(std::stoull(argv[++i]));
+      } else if (arg == "--max-iterations" && i + 1 < argc) {
+        options.max_while_iterations =
             static_cast<std::size_t>(std::stoull(argv[++i]));
       } else {
         std::cerr << "unknown or incomplete run option: " << arg << "\n";
@@ -261,10 +291,13 @@ int main(int argc, char** argv) {
     return result.exit_code;
   }
   if (argc != 1 &&
-      !(argc == 2 && std::string(argv[1]) == "--list-embedded")) {
+      !(argc == 2 && std::string(argv[1]) == "--list-embedded") &&
+      !(argc == 2 && std::string(argv[1]) == "--registry-version")) {
     std::cerr << "usage: standalone [--list-embedded] "
+                 "[--registry-version] "
                  "[--extract function] [run [--output-root dir] "
-                 "[--manifest path] [--max-executions n]]\n";
+                 "[--manifest path] [--max-executions n] "
+                 "[--max-iterations n]]\n";
     return 2;
   }
   std::cout << "JOCKY standalone case " << )CPP"
@@ -359,6 +392,21 @@ int main(int argc, char** argv) {
         }
         const jocky::EmbedResult embedded = jocky::embed_scripts(shaken);
 
+        // Phase 7.5 aggregate registry digest (audit GAP-4): SHA-256
+        // over the ordered embedded closure ("function\0sha256\n" per
+        // unit). Order is the deterministic topological order from
+        // resolve_scripts, so the same program + registry always yields
+        // the same version. Queryable via `standalone --registry-version`.
+        std::string registry_version_input;
+        for (const auto& script : embedded.scripts) {
+            registry_version_input += script.metadata.function;
+            registry_version_input.push_back('\0');
+            registry_version_input += script.sha256;
+            registry_version_input.push_back('\n');
+        }
+        const std::string registry_version =
+            jocky::sha256_bytes(registry_version_input);
+
         std::string pattern =
             (std::filesystem::temp_directory_path() / "jockyc-XXXXXX.cpp")
                 .string();
@@ -377,8 +425,10 @@ int main(int argc, char** argv) {
 
         const std::string source_sha256 =
             jocky::sha256_file(options.source);
+        const std::string program_source =
+            jocky::read_binary_file(options.source);
         write_runner(generated, embedded, program, bound, gate,
-                     source_sha256);
+                     source_sha256, program_source, registry_version);
         const int compile_status = compile_runner(generated, options.output);
         if (compile_status != 0) {
             std::cerr << "error: host compiler exited " << compile_status
@@ -387,6 +437,7 @@ int main(int argc, char** argv) {
         }
         std::cout << "BUILT " << options.output << " with "
                   << embedded.scripts.size() << " embedded script(s)\n";
+        std::cout << "registry_version " << registry_version << "\n";
         for (const auto& script : embedded.scripts) {
             std::cout << "  " << script.metadata.function << " "
                       << script.sha256 << "\n";

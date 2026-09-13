@@ -101,6 +101,23 @@ no unlogged execution is possible.
 **Deliverable:** Runtime dispatcher plus manifest writer with tests for
 success, failure, timeout, and capability-denial entries.
 
+## Phase 7.5: Execution-Time Control-Flow Interpreter + Manifest Corrections
+
+**Why it exists:** the Phase 6/7 audit (`wiki/18-phase6-7-audit.md` §2.3)
+found the dispatcher executing a flattened call list with no regard for
+`if`/`for`/`while` structure (both branches ran, loops ran once, no
+iteration ceiling anywhere despite the `wiki/17` §3 MUST). Parity testing
+on top of that would compare two equally broken paths, so this
+corrective phase lands before Phase 8 and Phase 8 may not proceed until
+its hostile fixtures pass.
+**Deliverable:** Runtime predicate evaluator + statement-tree executor
+(taken-branch-only, real `for` trips, re-evaluated `while` under a hard
+configurable ceiling with a distinct capped outcome) sharing one
+dispatch path with flat mode; manifest schema 0.2.0 (`program_sha256`,
+per-entry `start/end_utc` + `stdout_sha256`, `registry_version` flag);
+`tests/phase7.5/` hostile fixtures green. Full record:
+`wiki/21-phase7-5-control-flow.md`.
+
 ## Phase 8: jocky Interpreter + Compiled/Interpreted Parity Testing
 
 **Goal:** Implement the `jocky <file.jky>` interpreted path running directly

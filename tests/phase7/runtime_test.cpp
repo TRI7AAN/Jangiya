@@ -5,7 +5,7 @@
 
 #include <unistd.h>
 
-#include "jocky/runtime/dispatcher.hpp"
+#include "jocky/runtime/control_flow_executor.hpp"
 
 namespace fs = std::filesystem;
 
@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 
     jocky::RuntimePlan base;
     base.case_id = "phase7";
-    base.jky_sha256 = jocky::sha256_bytes("phase7 fixture");
+    base.program_sha256 = jocky::sha256_bytes("phase7 fixture");
     base.allowed_capabilities = {"test.execute"};
     base.evidence.push_back({"ev", "file", evidence.string()});
 

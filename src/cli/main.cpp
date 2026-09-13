@@ -324,7 +324,14 @@ void print_program(std::ostream& os, const jocky::Program& prog) {
             }
             os << "\"" << c.capabilities[i] << "\"";
         }
-        os << "]\n";
+        os << "]";
+        // Phase 7.5: rendered only when the source wrote the field, so
+        // every pre-7.5 program prints byte-identically to the frozen
+        // wiki/11 §1 baseline.
+        if (c.max_while_iterations.has_value()) {
+            os << " max_while_iterations=" << *c.max_while_iterations;
+        }
+        os << "\n";
     }
     for (const auto& e : prog.evidence) {
         os << "  EvidenceDecl " << e.name << " adapter=" << e.adapter

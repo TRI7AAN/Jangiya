@@ -1,0 +1,12 @@
+# Supplemental: integer-let bound form at runtime — N = 2 yields
+# exactly 2 body attempts.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let N = 2;
+  for (int i = 0; i < N; i++) {
+    let x = call jky_recon_true_branch(target: "w");
+    x | emit fin;
+  }
+}

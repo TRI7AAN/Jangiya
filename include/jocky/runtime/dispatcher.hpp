@@ -56,6 +56,12 @@ struct RuntimeCall {
     std::string script_source;
     int timeout_seconds = 30;
     std::vector<RuntimeArgument> args;
+    // Source position of the `call` keyword (Phase 7.5). The
+    // control-flow executor matches re-parsed AST call sites to plan
+    // entries through (line, col); 0/0 means "unpositioned" (hand-built
+    // plans, which only run in flat legacy mode).
+    int line = 0;
+    int col = 0;
 };
 
 inline RuntimeCall load_registry_runtime_call(
@@ -81,11 +87,25 @@ struct RuntimeEvidence {
 
 struct RuntimePlan {
     std::string case_id;
-    std::string jky_sha256;
+    // SHA-256 of the .jky program text (provenance, not a script hash;
+    // serialized as top-level "program_sha256" since Phase 7.5 — the old
+    // "script_sha256" key name was a wart, see wiki/18-phase6-7-audit.md
+    // GAP-5).
+    std::string program_sha256;
     std::vector<std::string> allowed_capabilities;
     std::vector<RuntimeEvidence> evidence;
     std::vector<std::string> declared_outputs;
     std::vector<RuntimeCall> calls;
+    // Embedded .jky source for execution-time control flow (Phase 7.5).
+    // The compiled binary always sets this; the executor re-parses it
+    // and walks the real statement tree. Empty means "no tree": legacy
+    // flat dispatch of `calls` in order (hand-built plans, all Phase 7
+    // tests). Never part of the manifest.
+    std::string program_source;
+    // Per-case while-loop iteration ceiling from
+    // `max_while_iterations` (Phase 7.5). 0 means "unset": fall back to
+    // RuntimeOptions::max_while_iterations.
+    std::size_t max_while_iterations = 0;
 };
 
 struct RuntimeOptions {
@@ -94,6 +114,11 @@ struct RuntimeOptions {
     std::string output_root = "out";
     std::string manifest_path = "out/manifest.json";
     std::size_t max_executions = 1000;
+    // Default while-loop iteration ceiling (Phase 7.5, fulfills the
+    // wiki/17 §3 commitment). A case-level `max_while_iterations`
+    // overrides this per plan. Hitting it aborts the loop with a
+    // distinct "while_ceiling" manifest entry — never silent.
+    std::size_t max_while_iterations = 10000;
 };
 
 struct ExecutionRecord {
@@ -105,8 +130,17 @@ struct ExecutionRecord {
     int exit_code = -1;
     bool timed_out = false;
     long long duration_ms = 0;
+    // Phase 7.5 chain-of-custody timing: wall-clock start/end of this
+    // attempt (UTC, second resolution like the run stamps).
+    // duration_ms stays as the convenient millisecond measure.
+    std::string start_utc;
+    std::string end_utc;
     std::string stdout_text;
     std::string stderr_text;
+    // Phase 7.5: SHA-256 of the captured stdout bytes, recorded
+    // alongside the raw text (kept for debugging). Set when the entry
+    // reaches a terminal outcome.
+    std::string stdout_sha256;
 };
 
 struct ArtifactRecord {
@@ -119,7 +153,7 @@ struct ArtifactRecord {
 
 struct RuntimeManifest {
     std::string case_id;
-    std::string jky_sha256;
+    std::string program_sha256;
     std::string run_start_utc;
     std::string run_end_utc;
     std::string status = "running";
@@ -279,10 +313,14 @@ inline void write_artifacts(std::ostream& out,
 
 inline void write_manifest_json(std::ostream& out,
                                 const RuntimeManifest& manifest) {
-    out << "{\"manifest_version\":\"0.1.0\",\"case_id\":";
+    // Schema 0.2.0 (Phase 7.5): top-level "program_sha256" renames the
+    // Phase 7 "script_sha256" key, which misleadingly held the .jky
+    // source hash (audit GAP-5); per-execution entries gain start_utc /
+    // end_utc / stdout_sha256. Raw stdout/stderr and duration_ms stay.
+    out << "{\"manifest_version\":\"0.2.0\",\"case_id\":";
     write_json_string(out, manifest.case_id);
-    out << ",\"script_sha256\":";
-    write_json_string(out, manifest.jky_sha256);
+    out << ",\"program_sha256\":";
+    write_json_string(out, manifest.program_sha256);
     out << ",\"runtime_version\":\"jocky 0.1.0\",\"run_start_utc\":";
     write_json_string(out, manifest.run_start_utc);
     out << ",\"run_end_utc\":";
@@ -322,8 +360,14 @@ inline void write_manifest_json(std::ostream& out,
         out << ",\"exit_code\":" << item.exit_code;
         out << ",\"timed_out\":" << (item.timed_out ? "true" : "false");
         out << ",\"duration_ms\":" << item.duration_ms;
+        out << ",\"start_utc\":";
+        write_json_string(out, item.start_utc);
+        out << ",\"end_utc\":";
+        write_json_string(out, item.end_utc);
         out << ",\"stdout\":";
         write_json_string(out, item.stdout_text);
+        out << ",\"stdout_sha256\":";
+        write_json_string(out, item.stdout_sha256);
         out << ",\"stderr\":";
         write_json_string(out, item.stderr_text);
         out << "}";
@@ -700,7 +744,205 @@ inline fs::path make_temp_path(const std::string& prefix) {
     return fs::path(writable.data());
 }
 
+// Shared per-attempt dispatch state (Phase 7.5). Both the legacy flat
+// call list and the control-flow tree executor dispatch through
+// dispatch_single_call below, so capability re-checks, integrity
+// re-checks, sandboxing, timeouts, and manifest writes cannot drift
+// apart between the two paths. All pointers stay valid for the whole
+// run_runtime_plan call (they alias its locals).
+struct DispatchState {
+    const RuntimePlan* plan = nullptr;
+    const RuntimeOptions* options = nullptr;
+    fs::path working;
+    fs::path output_root;
+    fs::path manifest_path;
+    RuntimeManifest* manifest = nullptr;
+    bool* all_ok = nullptr;
+    std::size_t* execution_count = nullptr;
+    std::set<std::string>* output_candidates = nullptr;
+};
 
+// Stamp a terminal outcome: wall-clock end + stdout hash (Phase 7.5).
+// Called exactly once per attempt, at every terminal assignment.
+inline void finalize_entry(ExecutionRecord& entry) {
+    entry.end_utc = utc_now();
+    entry.stdout_sha256 = sha256_bytes(entry.stdout_text);
+}
+
+// Dispatch one call end-to-end (moved verbatim from run_runtime_plan's
+// loop in Phase 7.5; behavior identical, now shared). Appends the
+// manifest entry as "started" BEFORE any spawn, then walks the denial
+// chain (execution ceiling → capability → integrity → argument
+// validation) and finally sandboxes with timeout. Never throws for
+// outcome-level events (they become entry outcomes); filesystem-level
+// persist failures still propagate to the caller.
+inline void dispatch_single_call(const RuntimeCall& call,
+                                 DispatchState& state) {
+    RuntimeManifest& manifest = *state.manifest;
+    const RuntimePlan& plan = *state.plan;
+    const RuntimeOptions& options = *state.options;
+    const fs::path& working = state.working;
+    const fs::path& output_root = state.output_root;
+    const fs::path& manifest_path = state.manifest_path;
+    bool& all_ok = *state.all_ok;
+    std::size_t& execution_count = *state.execution_count;
+    std::set<std::string>& output_candidates = *state.output_candidates;
+
+    ExecutionRecord record;
+    record.function = call.function;
+    record.capability = call.capability;
+    record.script_sha256 = call.script_sha256;
+    record.args = call.args;
+    record.start_utc = utc_now();
+    manifest.executions.push_back(record);
+    ExecutionRecord& entry = manifest.executions.back();
+    persist_manifest(manifest_path, manifest);
+
+    if (execution_count >= options.max_executions) {
+        entry.outcome = "ceiling_denied";
+        entry.stderr_text = "runtime execution ceiling reached";
+        all_ok = false;
+        finalize_entry(entry);
+        persist_manifest(manifest_path, manifest);
+        return;
+    }
+    ++execution_count;
+    if (!capability_allowed(plan.allowed_capabilities, call.capability)) {
+        entry.outcome = "capability_denied";
+        entry.stderr_text = "runtime capability re-check denied '" +
+                            call.capability + "'";
+        all_ok = false;
+        finalize_entry(entry);
+        persist_manifest(manifest_path, manifest);
+        return;
+    }
+    if (sha256_bytes(call.script_source) != call.script_sha256) {
+        entry.outcome = "integrity_denied";
+        entry.stderr_text = "embedded script SHA-256 mismatch";
+        all_ok = false;
+        finalize_entry(entry);
+        persist_manifest(manifest_path, manifest);
+        return;
+    }
+
+    const fs::path sandbox_root = make_temp_path("jocky-sandbox");
+    bool args_valid = true;
+    std::vector<std::string> values;
+    std::vector<std::pair<fs::path, std::string>> input_snapshots;
+    std::vector<std::pair<fs::path, fs::path>> staged_outputs;
+    try {
+        prepare_isolated_root(sandbox_root, call.script_source);
+        std::set<std::string> staged_destinations;
+        auto stage_destination = [&](const fs::path& destination) {
+            const fs::path staged =
+                staged_output_path(output_root, destination);
+            if (staged_destinations.insert(destination.string()).second) {
+                staged_outputs.push_back({staged, destination});
+                fs::create_directories(
+                    (sandbox_root / staged.relative_path()).parent_path());
+            }
+            return staged.string();
+        };
+        for (const std::string& declared : plan.declared_outputs) {
+            stage_destination(canonical_path(declared, working));
+        }
+
+        std::size_t input_index = 0;
+        for (const RuntimeArgument& arg : call.args) {
+            if (!valid_runtime_value(arg)) {
+                args_valid = false;
+                entry.stderr_text =
+                    "runtime argument validation failed for '" + arg.name +
+                    "' as " + arg.declared_type;
+                break;
+            }
+            if (arg.declared_type != "path") {
+                values.push_back(arg.value);
+                continue;
+            }
+            if (arg.value.empty()) {
+                values.emplace_back();
+                continue;
+            }
+            const fs::path value_path = canonical_path(arg.value, working);
+            if (path_is_within(value_path, output_root)) {
+                output_candidates.insert(value_path.string());
+                values.push_back(stage_destination(value_path));
+            } else {
+                const fs::path child_path =
+                    snapshot_input(value_path, sandbox_root, input_index++);
+                const fs::path host_snapshot =
+                    sandbox_root / child_path.relative_path();
+                input_snapshots.push_back(
+                    {host_snapshot,
+                     hash_artifact("", "", host_snapshot).sha256});
+                values.push_back(child_path.string());
+            }
+        }
+    } catch (const std::exception& ex) {
+        args_valid = false;
+        entry.stderr_text = ex.what();
+    }
+    if (!args_valid) {
+        entry.outcome = "validation_denied";
+        all_ok = false;
+        fs::remove_all(sandbox_root);
+        finalize_entry(entry);
+        persist_manifest(manifest_path, manifest);
+        return;
+    }
+
+    try {
+        const ChildResult child =
+            spawn_sandboxed(options, values, call.timeout_seconds,
+                              sandbox_root);
+        entry.exit_code = child.exit_code;
+        entry.timed_out = child.timed_out;
+        entry.duration_ms = child.duration_ms;
+        entry.stdout_text = child.stdout_text;
+        entry.stderr_text = child.stderr_text;
+        entry.outcome = child.timed_out
+                            ? "timeout"
+                            : (child.exit_code == 0 ? "success" : "failure");
+        bool input_changed = false;
+        for (const auto& [snapshot, before_sha256] : input_snapshots) {
+            try {
+                if (hash_artifact("", "", snapshot).sha256 != before_sha256) {
+                    input_changed = true;
+                }
+            } catch (const std::exception&) {
+                input_changed = true;
+            }
+        }
+        if (input_changed) {
+            entry.outcome = "evidence_write_denied";
+            if (!entry.stderr_text.empty()) entry.stderr_text += "\n";
+            entry.stderr_text +=
+                "isolated evidence snapshot was modified; outputs discarded";
+            all_ok = false;
+        } else if (entry.outcome == "success") {
+            for (const auto& [staged, destination] : staged_outputs) {
+                promote_output(sandbox_root, staged, destination);
+            }
+        } else {
+            all_ok = false;
+        }
+    } catch (const std::exception& ex) {
+        entry.outcome = "dispatcher_failure";
+        entry.stderr_text = ex.what();
+        all_ok = false;
+    }
+    fs::remove_all(sandbox_root);
+    finalize_entry(entry);
+    persist_manifest(manifest_path, manifest);
+}
+
+// Execution-time control-flow driver (Phase 7.5). Defined in
+// runtime/control_flow_executor.hpp; declared here so run_runtime_plan
+// can branch to it without a circular include. Returns true when the
+// tree walked to completion; false on fail-closed abort (the abort is
+// already manifest-logged with all_ok set false).
+inline bool execute_plan_tree(const RuntimePlan& plan, DispatchState& state);
 
 }  // namespace runtime_detail
 
@@ -712,7 +954,7 @@ inline DispatchResult run_runtime_plan(const RuntimePlan& plan,
     DispatchResult result;
     RuntimeManifest& manifest = result.manifest;
     manifest.case_id = plan.case_id;
-    manifest.jky_sha256 = plan.jky_sha256;
+    manifest.program_sha256 = plan.program_sha256;
     manifest.allowed_capabilities = plan.allowed_capabilities;
     manifest.run_start_utc = utc_now();
 
@@ -772,148 +1014,25 @@ inline DispatchResult run_runtime_plan(const RuntimePlan& plan,
     std::size_t execution_count = 0;
     std::set<std::string> output_candidates(plan.declared_outputs.begin(),
                                             plan.declared_outputs.end());
-    for (const RuntimeCall& call : plan.calls) {
-        ExecutionRecord record;
-        record.function = call.function;
-        record.capability = call.capability;
-        record.script_sha256 = call.script_sha256;
-        record.args = call.args;
-        manifest.executions.push_back(record);
-        ExecutionRecord& entry = manifest.executions.back();
-        persist_manifest(manifest_path, manifest);
-
-        if (execution_count >= options.max_executions) {
-            entry.outcome = "ceiling_denied";
-            entry.stderr_text = "runtime execution ceiling reached";
-            all_ok = false;
-            persist_manifest(manifest_path, manifest);
-            continue;
+    DispatchState state;
+    state.plan = &plan;
+    state.options = &options;
+    state.working = working;
+    state.output_root = output_root;
+    state.manifest_path = manifest_path;
+    state.manifest = &manifest;
+    state.all_ok = &all_ok;
+    state.execution_count = &execution_count;
+    state.output_candidates = &output_candidates;
+    if (!plan.program_source.empty()) {
+        // Phase 7.5 tree mode: walk the real statement tree (branch
+        // selection, real loops, while ceiling). An empty source keeps
+        // the legacy flat dispatch (hand-built plans, Phase 7 tests).
+        execute_plan_tree(plan, state);
+    } else {
+        for (const RuntimeCall& call : plan.calls) {
+            dispatch_single_call(call, state);
         }
-        ++execution_count;
-        if (!capability_allowed(plan.allowed_capabilities, call.capability)) {
-            entry.outcome = "capability_denied";
-            entry.stderr_text = "runtime capability re-check denied '" +
-                                call.capability + "'";
-            all_ok = false;
-            persist_manifest(manifest_path, manifest);
-            continue;
-        }
-        if (sha256_bytes(call.script_source) != call.script_sha256) {
-            entry.outcome = "integrity_denied";
-            entry.stderr_text = "embedded script SHA-256 mismatch";
-            all_ok = false;
-            persist_manifest(manifest_path, manifest);
-            continue;
-        }
-
-        const fs::path sandbox_root = make_temp_path("jocky-sandbox");
-        bool args_valid = true;
-        std::vector<std::string> values;
-        std::vector<std::pair<fs::path, std::string>> input_snapshots;
-        std::vector<std::pair<fs::path, fs::path>> staged_outputs;
-        try {
-            prepare_isolated_root(sandbox_root, call.script_source);
-            std::set<std::string> staged_destinations;
-            auto stage_destination = [&](const fs::path& destination) {
-                const fs::path staged =
-                    staged_output_path(output_root, destination);
-                if (staged_destinations.insert(destination.string()).second) {
-                    staged_outputs.push_back({staged, destination});
-                    fs::create_directories(
-                        (sandbox_root / staged.relative_path()).parent_path());
-                }
-                return staged.string();
-            };
-            for (const std::string& declared : plan.declared_outputs) {
-                stage_destination(canonical_path(declared, working));
-            }
-
-            std::size_t input_index = 0;
-            for (const RuntimeArgument& arg : call.args) {
-                if (!valid_runtime_value(arg)) {
-                    args_valid = false;
-                    entry.stderr_text =
-                        "runtime argument validation failed for '" + arg.name +
-                        "' as " + arg.declared_type;
-                    break;
-                }
-                if (arg.declared_type != "path") {
-                    values.push_back(arg.value);
-                    continue;
-                }
-                if (arg.value.empty()) {
-                    values.emplace_back();
-                    continue;
-                }
-                const fs::path value_path = canonical_path(arg.value, working);
-                if (path_is_within(value_path, output_root)) {
-                    output_candidates.insert(value_path.string());
-                    values.push_back(stage_destination(value_path));
-                } else {
-                    const fs::path child_path =
-                        snapshot_input(value_path, sandbox_root, input_index++);
-                    const fs::path host_snapshot =
-                        sandbox_root / child_path.relative_path();
-                    input_snapshots.push_back(
-                        {host_snapshot,
-                         hash_artifact("", "", host_snapshot).sha256});
-                    values.push_back(child_path.string());
-                }
-            }
-        } catch (const std::exception& ex) {
-            args_valid = false;
-            entry.stderr_text = ex.what();
-        }
-        if (!args_valid) {
-            entry.outcome = "validation_denied";
-            all_ok = false;
-            fs::remove_all(sandbox_root);
-            persist_manifest(manifest_path, manifest);
-            continue;
-        }
-
-        try {
-            const ChildResult child =
-                spawn_sandboxed(options, values, call.timeout_seconds,
-                                  sandbox_root);
-            entry.exit_code = child.exit_code;
-            entry.timed_out = child.timed_out;
-            entry.duration_ms = child.duration_ms;
-            entry.stdout_text = child.stdout_text;
-            entry.stderr_text = child.stderr_text;
-            entry.outcome = child.timed_out
-                                ? "timeout"
-                                : (child.exit_code == 0 ? "success" : "failure");
-            bool input_changed = false;
-            for (const auto& [snapshot, before_sha256] : input_snapshots) {
-                try {
-                    if (hash_artifact("", "", snapshot).sha256 != before_sha256) {
-                        input_changed = true;
-                    }
-                } catch (const std::exception&) {
-                    input_changed = true;
-                }
-            }
-            if (input_changed) {
-                entry.outcome = "evidence_write_denied";
-                if (!entry.stderr_text.empty()) entry.stderr_text += "\n";
-                entry.stderr_text +=
-                    "isolated evidence snapshot was modified; outputs discarded";
-                all_ok = false;
-            } else if (entry.outcome == "success") {
-                for (const auto& [staged, destination] : staged_outputs) {
-                    promote_output(sandbox_root, staged, destination);
-                }
-            } else {
-                all_ok = false;
-            }
-        } catch (const std::exception& ex) {
-            entry.outcome = "dispatcher_failure";
-            entry.stderr_text = ex.what();
-            all_ok = false;
-        }
-        fs::remove_all(sandbox_root);
-        persist_manifest(manifest_path, manifest);
     }
 
     for (const std::string& output : output_candidates) {

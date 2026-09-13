@@ -1,0 +1,12 @@
+# Fixture 1: call inside a literal-false branch must NEVER execute —
+# zero manifest entries for it, no subprocess spawned. The poison
+# script exits 7, so any execution would visibly fail the run.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  if (false) {
+    let x = call jky_recon_false_branch(target: "x");
+    x | emit fin;
+  }
+}

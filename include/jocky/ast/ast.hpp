@@ -234,6 +234,12 @@ struct CaseDecl {
     // "field written as []" — an empty capabilities list and an absent
     // field are different authorization postures).
     bool capabilities_declared = false;
+    // Optional per-case while-loop iteration ceiling (Phase 7.5). Absent
+    // means "unset": the runtime falls back to
+    // RuntimeOptions::max_while_iterations. Present (even as 0, which
+    // disables looping bodies immediately) overrides the default.
+    // Parsed from `max_while_iterations: <non-negative int>;`.
+    std::optional<std::int64_t> max_while_iterations;
 };
 
 struct EvidenceDecl {

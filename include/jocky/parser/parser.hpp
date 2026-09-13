@@ -132,6 +132,7 @@ private:
     }
 
     // case_decl := "case" ident "{" { case_field } "}"
+    // case_field := allowed_capabilities_field | while_ceiling_field
     CaseDecl parse_case_decl() {
         CaseDecl decl;
         decl.name = expect_ident("case name");
@@ -141,20 +142,46 @@ private:
                 fail("unterminated case block");
             }
             std::string field = expect_ident("case field");
-            if (field != "allowed_capabilities") {
+            if (field == "allowed_capabilities") {
+                expect_symbol(":");
+                expect_symbol("[");
+                decl.capabilities_declared = true;
+                if (!check_symbol("]")) {
+                    decl.capabilities.push_back(expect_string("capability"));
+                    while (match_symbol(",")) {
+                        decl.capabilities.push_back(expect_string("capability"));
+                    }
+                }
+                expect_symbol("]");
+                expect_symbol(";");
+            } else if (field == "max_while_iterations") {
+                // Phase 7.5: optional per-case while-loop iteration
+                // ceiling. Written twice is a hard error (fail-closed:
+                // two values would be ambiguous); negative values are
+                // rejected (a ceiling below zero is meaningless).
+                if (decl.max_while_iterations.has_value()) {
+                    fail_at(previous(),
+                            "duplicate case field 'max_while_iterations'");
+                }
+                expect_symbol(":");
+                if (peek().kind != TokenKind::IntLit) {
+                    fail("expected non-negative integer while ceiling, "
+                         "found '" +
+                         peek().lexeme + "'");
+                }
+                const Token ceiling_tok = peek();
+                const std::int64_t ceiling =
+                    std::stoll(ceiling_tok.lexeme);
+                advance();
+                if (ceiling < 0) {
+                    fail_at(ceiling_tok,
+                            "max_while_iterations must be non-negative");
+                }
+                decl.max_while_iterations = ceiling;
+                expect_symbol(";");
+            } else {
                 fail_at(previous(), "unknown case field '" + field + "'");
             }
-            expect_symbol(":");
-            expect_symbol("[");
-            decl.capabilities_declared = true;
-            if (!check_symbol("]")) {
-                decl.capabilities.push_back(expect_string("capability"));
-                while (match_symbol(",")) {
-                    decl.capabilities.push_back(expect_string("capability"));
-                }
-            }
-            expect_symbol("]");
-            expect_symbol(";");
         }
         expect_symbol("}");
         return decl;

@@ -26,5 +26,6 @@ updating the relevant wiki doc.
 | [18-project-alignment-audit.md](18-project-alignment-audit.md) | Whole-project SIH26148 alignment audit: verified implementation state, literal-PS mapping, gaps, and recommended order. |
 | [19-phase6-embedding.md](19-phase6-embedding.md) | Phase 6 record: scan/embed SHA-256 freshness, exact closure packaging, `jockyc`, standalone artifact behavior, digests, and verification. |
 | [20-phase7-runtime.md](20-phase7-runtime.md) | Phase 7 record: isolated shared dispatcher, runtime rechecks, evidence snapshots, output staging, complete manifests, hashes, and verification. |
+| [21-phase7-5-control-flow.md](21-phase7-5-control-flow.md) | Phase 7.5 record: execution-time predicate evaluator + statement-tree executor (taken-branch-only, real for trips, hard while ceiling), shared dispatch path, manifest schema 0.2.0, registry_version flag, hostile fixtures. |
 | [grammar.md](grammar.md) | Authoritative `.jky` syntax reference with usage: lexical rules, all four declarations, heads, predicates, all ten pipeline operators, correlate windows, types, control flow, per-command validation, verified examples. |
 | [keywords.md](keywords.md) | Reserved-word roll: all 150 keywords (42 `.jky` + 38 C + 52 C++ + 18 Java), usage table, deliberate exclusions, reservation record. |

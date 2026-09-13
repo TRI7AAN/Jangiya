@@ -1,0 +1,20 @@
+# Fixture 5: nested if->for->if (Phase 5.5 fixture 6 structure).
+# Only the taken path executes: probe once, deep twice (literal bound
+# 2), tls (poison, exit 7) zero times — 3 entries total.
+case t {
+  allowed_capabilities: ["recon.fixture.execute"];
+}
+investigate t {
+  let probe = call jky_recon_true_branch(target: "a");
+  if (probe == probe) {
+    for (int i = 0; i < 2; i++) {
+      if (true) {
+        let deep = call jky_recon_emit_lines(target: "b");
+        deep | emit fin;
+      }
+    }
+  } else {
+    let tls = call jky_recon_false_branch(target: "c");
+    tls | emit fin;
+  }
+}
