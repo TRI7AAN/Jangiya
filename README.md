@@ -16,7 +16,7 @@ only), and ends by appending to `logs.md`.
 | Path | What it is |
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
-| `roadmap.md` | Full plan, Phases 0–11 (changes rarely) |
+| `roadmap.md` | Full plan, Phases 0–11 Track A + Track B IDE shell (Phases 12–16, changes rarely) |
 | `implementationplan.md` | Current phase detail only (Phase 8: interpreter + parity) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
@@ -101,6 +101,31 @@ only), and ends by appending to `logs.md`.
   `wiki/21-phase7-5-control-flow.md`
 - [ ] Phase 8 (current): `jocky` interpreter + compiled/interpreted parity
   — see `implementationplan.md`
+
+### Track plan (A: toolchain, B: Java IDE shell)
+
+Track A is the forensic toolchain (Phases 5–7 complete, Phase 8 current
+per Status above). Track B is a parallel Java IDE shell over the CLI —
+it starts immediately on the existing `jocky`/`jockyc` commands and never
+blocks Track A:
+
+| Phase | Track | Focus | Depends on |
+| ----- | ----- | ----- | ---------- |
+| 5 | A | Tree-shaking resolver (in progress) | Phase 4 |
+| 6 | A | Script embedding + jockyc binary generation | Phase 5 |
+| 7 | A | Sandboxed runtime dispatcher + manifest logging | Phase 6 |
+| 8 | A | jocky interpreter + compiled/interpreted parity test | Phase 7 |
+| 9 | A | Real registry finalization (header gaps, timeline/report domains, smoke tests) | Phases 2, 7, 8 |
+| 12 | B | Java shell + editor pane — window layout mirroring VS Code (left file tree, center editor, bottom terminal, right/bottom output panel), using JavaFX with an embedded Monaco editor (via WebView) for real .jky syntax highlighting without hand-rolling a highlighter | Nothing from Track A — can start immediately, using Phase 3–4's existing CLI |
+| 13 | B | Integrated terminal pane — spawn jocky/jockyc as a subprocess, stream stdout/stderr live into a terminal-style widget, support interactive re-runs without leaving the app | Phase 12 |
+| 14 | B | Structured output/monitor panel — parse jocky gate/jocky shake output (and later Phase 7's manifest JSON) into readable panels: a findings table, a dependency tree view for shaken scripts, colored ALLOWED/DENIED banners, and clickable file:line:col diagnostics that jump the editor cursor to the error | Phase 12; richer once Phase 7's manifest exists |
+| 10 | A | Judge-facing rationale doc | Phase 6 (needs the binary to describe) |
+| 11 | A | Final gap-check audit vs. SIH26148 | Everything in Track A |
+| 15 | B | Manifest/report visualization — once Phase 7 exists, render the evidence-integrity manifest as a proper case report view (hash chain, execution log, timeline) instead of raw JSON | Phase 7 |
+| 16 | B | Packaging — jpackage into a distributable installer/jar bundling the Java app, invoking either a system-installed jocky/jockyc or a bundled copy | Phase 6 (for jockyc), Phase 15 |
+
+See `roadmap.md` (Phases 12–16) and `wiki/05-frontend-design.md` (§4) for
+the same plan on the wiki side.
 
 ### Safety boundary (permanent, see `AGENTS.md` §2)
 

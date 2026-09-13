@@ -55,3 +55,25 @@ the manifest proving integrity:
 4. **`verify`** — `jocky verify manifest.json`: re-hashes inputs/outputs,
    replays manifest entries, prints PASS. The closing slide is the
    manifest itself — the integrity proof is the product.
+
+## 4. Track B: Java IDE Shell (Phases 12–16, parallel to Track A)
+
+The IDE shell is a Java/JavaFX app over the Track A CLI — same demo
+story as §3, but hosted in a VS Code-style window instead of a bare
+terminal. It starts immediately on the existing CLI and gains richer
+views as Phase 6/7 artifacts land. It invokes `jocky`/`jockyc` as
+subprocesses and reads only their stdout/stderr plus manifest/report
+artifacts: it never touches evidence directly, never re-executes
+anything itself, and never bypasses the capability gate (all `AGENTS.md`
+§2 rules apply to anything it runs).
+
+| Phase | Focus | Depends on |
+| ----- | ----- | ---------- |
+| 12 | Java shell + editor pane — window layout mirroring VS Code (left file tree, center editor, bottom terminal, right/bottom output panel), using JavaFX with an embedded Monaco editor (via WebView) for real .jky syntax highlighting without hand-rolling a highlighter | Nothing from Track A — can start immediately, using Phase 3–4's existing CLI |
+| 13 | Integrated terminal pane — spawn jocky/jockyc as a subprocess, stream stdout/stderr live into a terminal-style widget, support interactive re-runs without leaving the app | Phase 12 |
+| 14 | Structured output/monitor panel — parse jocky gate/jocky shake output (and later Phase 7's manifest JSON) into readable panels: a findings table, a dependency tree view for shaken scripts, colored ALLOWED/DENIED banners, and clickable file:line:col diagnostics that jump the editor cursor to the error | Phase 12; richer once Phase 7's manifest exists |
+| 15 | Manifest/report visualization — once Phase 7 exists, render the evidence-integrity manifest as a proper case report view (hash chain, execution log, timeline) instead of raw JSON | Phase 7 |
+| 16 | Packaging — jpackage into a distributable installer/jar bundling the Java app, invoking either a system-installed jocky/jockyc or a bundled copy | Phase 6 (for jockyc), Phase 15 |
+
+Plan of record for these phases: `roadmap.md` Phases 12–16. Track A
+phases (5–11) are unchanged.

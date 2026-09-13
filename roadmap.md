@@ -157,3 +157,59 @@ demonstrably absent (with pointers to the enforcement mechanism), and every
 gap is either closed or documented with a reason.
 **Deliverable:** Gap-check matrix (requirement → status → evidence/pointer)
 signed off in `logs.md` as the project close-out entry.
+
+## Track B: Java IDE Shell (parallel to Track A, starts immediately)
+
+Track B builds a Java IDE shell over the Track A CLI. It never blocks
+Track A: Phase 12 starts immediately on the existing Phase 3–4 CLI, and
+later phases light up richer views as Phase 6/7 artifacts exist. Track B
+invokes `jocky`/`jockyc` as subprocesses and reads only their
+stdout/stderr and manifest/report artifacts — it never touches evidence
+directly, never re-implements gating, and never bypasses the capability
+gate (all `AGENTS.md` §2 rules still apply to anything it runs).
+
+## Phase 12: Java Shell + Editor Pane
+
+**Goal:** Window layout mirroring VS Code (left file tree, center
+editor, bottom terminal, right/bottom output panel), using JavaFX with an
+embedded Monaco editor (via WebView) for real `.jky` syntax highlighting
+without hand-rolling a highlighter.
+**Deliverable:** Java app shell opening `.jky` files with highlighting,
+file tree, and output panel placeholders.
+**Depends on:** Nothing from Track A — uses Phase 3–4's existing CLI.
+
+## Phase 13: Integrated Terminal Pane
+
+**Goal:** Spawn `jocky`/`jockyc` as a subprocess, stream stdout/stderr
+live into a terminal-style widget, support interactive re-runs without
+leaving the app.
+**Deliverable:** Terminal pane running real CLI commands with live
+output and re-run.
+**Depends on:** Phase 12.
+
+## Phase 14: Structured Output/Monitor Panel
+
+**Goal:** Parse `jocky gate` / `jocky shake` output (and later Phase 7's
+manifest JSON) into readable panels: a findings table, a dependency tree
+view for shaken scripts, colored ALLOWED/DENIED banners, and clickable
+`file:line:col` diagnostics that jump the editor cursor to the error.
+**Deliverable:** Monitor panel rendering gate/shake results structurally;
+richer once Phase 7's manifest exists.
+**Depends on:** Phase 12; richer once Phase 7's manifest exists.
+
+## Phase 15: Manifest/Report Visualization
+
+**Goal:** Once Phase 7 exists, render the evidence-integrity manifest as
+a proper case report view (hash chain, execution log, timeline) instead
+of raw JSON.
+**Deliverable:** Case report view over a real Phase 7 manifest.
+**Depends on:** Phase 7.
+
+## Phase 16: Packaging
+
+**Goal:** `jpackage` into a distributable installer/jar bundling the
+Java app, invoking either a system-installed `jocky`/`jockyc` or a
+bundled copy.
+**Deliverable:** Installable package that runs the IDE against a real
+toolchain.
+**Depends on:** Phase 6 (for `jockyc`), Phase 15.
