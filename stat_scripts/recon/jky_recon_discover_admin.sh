@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_recon_discover_admin
+# @jocky:domain recon
+# @jocky:description Discover exposed admin interfaces via port scan and path probes
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs admin_report: text
+# @jocky:capability recon.admin.discover
+# @jocky:timeout_seconds 180
+# @jocky:depends_on
 # V-071 -- Exposed admin interface
 # Tool: nmap+httpx
 # Usage: bash V-071.sh <target> <session_output_dir>

@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_cert
+# @jocky:domain compliance
+# @jocky:description Dump remote TLS certificate chain, dates, subject and issuer via openssl
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.tls.scan
+# @jocky:timeout_seconds 180
+# @jocky:depends_on
 # V-008 -- Expired/self-signed certificate
 # Tool: openssl s_client
 # Usage: bash V-008.sh <target> <session_output_dir>

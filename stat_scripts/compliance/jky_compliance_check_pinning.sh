@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_pinning
+# @jocky:domain compliance
+# @jocky:description Assess SSL pinning indicators via sslscan, openssl SPKI pin and HTTP headers
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.tls.scan
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 # V-009 -- Lack of SSL pinning
 # Tool: sslscan + openssl
 # Usage: bash V-009.sh <target> <session_output_dir>

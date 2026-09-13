@@ -1,0 +1,5 @@
+finding,severity,source
+hardcoded-key,high,repo
+weak-tls,medium,scan
+open-port,low,scan
+note,info,analyst

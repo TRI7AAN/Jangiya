@@ -1,0 +1,468 @@
+{
+ "fixtures": [
+  {
+   "function": "jky_compliance_audit_code",
+   "capability": "compliance.code.audit",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_compliance_build_sbom",
+   "capability": "compliance.code.audit",
+   "output_type": "text",
+   "timeout_seconds": 180,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_compliance_check_binary_hardening",
+   "capability": "compliance.host.audit",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_compliance_check_cert",
+   "capability": "compliance.tls.scan",
+   "output_type": "text",
+   "timeout_seconds": 180,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_ciphers",
+   "capability": "compliance.tls.scan",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_format_strings",
+   "capability": "compliance.code.audit",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_compliance_check_hsts",
+   "capability": "compliance.web.read",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_password_policy",
+   "capability": "compliance.web.read",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_pinning",
+   "capability": "compliance.tls.scan",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_session_fixation",
+   "capability": "compliance.web.audit",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_check_tls_version",
+   "capability": "compliance.tls.scan",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_enum_cloud_storage",
+   "capability": "compliance.cloud.read",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_run_testssl",
+   "capability": "compliance.tls.scan",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_scan_build_secrets",
+   "capability": "compliance.web.read",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_compliance_scan_dependencies",
+   "capability": "compliance.code.audit",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_hostforensics_check_apk_hardening",
+   "capability": "hostforensics.app.audit",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "target": "path"
+   }
+  },
+  {
+   "function": "jky_hostforensics_scan_secrets",
+   "capability": "hostforensics.secret.scan",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_netforensics_check_dns_anomalies",
+   "capability": "netforensics.dns.analyze",
+   "output_type": "table<indicator>",
+   "timeout_seconds": 120,
+   "args": {
+    "dns_csv": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "dns_csv": "path"
+   }
+  },
+  {
+   "function": "jky_netforensics_detect_beaconing",
+   "capability": "netforensics.flow.analyze",
+   "output_type": "table<indicator>",
+   "timeout_seconds": 120,
+   "args": {
+    "flows_csv": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "flows_csv": "path"
+   }
+  },
+  {
+   "function": "jky_netforensics_extract_dns",
+   "capability": "netforensics.pcap.read",
+   "output_type": "table<dns_event>",
+   "timeout_seconds": 300,
+   "args": {
+    "pcap_path": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "pcap_path": "path"
+   }
+  },
+  {
+   "function": "jky_netforensics_extract_flows",
+   "capability": "netforensics.pcap.read",
+   "output_type": "table<flow>",
+   "timeout_seconds": 300,
+   "args": {
+    "pcap_path": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "pcap_path": "path"
+   }
+  },
+  {
+   "function": "jky_netforensics_extract_http",
+   "capability": "netforensics.pcap.read",
+   "output_type": "table<log_event>",
+   "timeout_seconds": 300,
+   "args": {
+    "pcap_path": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "pcap_path": "path"
+   }
+  },
+  {
+   "function": "jky_netforensics_top_talkers",
+   "capability": "netforensics.flow.analyze",
+   "output_type": "table<indicator>",
+   "timeout_seconds": 120,
+   "args": {
+    "flows_csv": "tests/phase9/inputs/placeholder.txt"
+   },
+   "arg_types": {
+    "flows_csv": "path"
+   }
+  },
+  {
+   "function": "jky_recon_audit_graphql",
+   "capability": "recon.graphql.audit",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_check_jdwp",
+   "capability": "recon.jdwp.scan",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_detect_dns_spoof",
+   "capability": "recon.dns.analyze",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_detect_waf",
+   "capability": "recon.waf.detect",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_discover_admin",
+   "capability": "recon.admin.discover",
+   "output_type": "text",
+   "timeout_seconds": 180,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_discover_params",
+   "capability": "recon.param.discover",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_enum_paths",
+   "capability": "recon.path.enumerate",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_enum_subdomains",
+   "capability": "recon.subdomain.enumerate",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_gather_osint",
+   "capability": "recon.osint.gather",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_recon_grab_banners",
+   "capability": "recon.banner.grab",
+   "output_type": "text",
+   "timeout_seconds": 300,
+   "args": {
+    "target": "example.com"
+   },
+   "arg_types": {
+    "target": "string"
+   }
+  },
+  {
+   "function": "jky_report_render_case_summary",
+   "capability": "report.render",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "findings_csv": "tests/phase9/inputs/findings.csv"
+   },
+   "arg_types": {
+    "findings_csv": "path"
+   }
+  },
+  {
+   "function": "jky_report_render_timeline",
+   "capability": "report.render",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "timeline_csv": "tests/phase9/inputs/events_a.csv"
+   },
+   "arg_types": {
+    "timeline_csv": "path"
+   }
+  },
+  {
+   "function": "jky_timeline_build_super",
+   "capability": "timeline.build",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "a_csv": "tests/phase9/inputs/events_a.csv",
+    "b_csv": "tests/phase9/inputs/events_b.csv"
+   },
+   "arg_types": {
+    "a_csv": "path",
+    "b_csv": "path"
+   }
+  },
+  {
+   "function": "jky_timeline_correlate_events",
+   "capability": "timeline.correlate",
+   "output_type": "text",
+   "timeout_seconds": 120,
+   "args": {
+    "left_csv": "tests/phase9/inputs/events_a.csv",
+    "right_csv": "tests/phase9/inputs/events_b.csv"
+   },
+   "arg_types": {
+    "left_csv": "path",
+    "right_csv": "path"
+   }
+  },
+  {
+   "function": "jky_timeline_extract_window",
+   "capability": "timeline.extract",
+   "output_type": "text",
+   "timeout_seconds": 60,
+   "args": {
+    "events_csv": "tests/phase9/inputs/events_a.csv",
+    "start_ts": "1700000000",
+    "end_ts": "1700000600"
+   },
+   "arg_types": {
+    "events_csv": "path",
+    "start_ts": "int",
+    "end_ts": "int"
+   }
+  }
+ ]
+}

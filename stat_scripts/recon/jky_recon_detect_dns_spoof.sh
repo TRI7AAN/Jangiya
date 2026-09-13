@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_recon_detect_dns_spoof
+# @jocky:domain recon
+# @jocky:description Test DNS spoof resistance via DNSSEC, consistency, TTL and wildcard checks
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs verdict: text
+# @jocky:capability recon.dns.analyze
+# @jocky:timeout_seconds 120
+# @jocky:depends_on
 # V-004 -- DNS spoofing
 # Tool: dig+spoof_probe
 # Usage: bash V-004.sh <target> <session_output_dir>

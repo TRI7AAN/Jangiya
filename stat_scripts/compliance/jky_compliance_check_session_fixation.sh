@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_session_fixation
+# @jocky:domain compliance
+# @jocky:description Test session fixation and cookie scope via curl cookie jars and failed-login POST
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.web.audit
+# @jocky:timeout_seconds 120
+# @jocky:depends_on
 # V-018 -- Session fixation
 # Tool: curl (session comparison before/after auth)
 # Usage: bash V-018.sh <target> <session_output_dir>

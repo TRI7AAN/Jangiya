@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_ciphers
+# @jocky:domain compliance
+# @jocky:description Probe weak cipher suites via testssl.sh, openssl and nmap
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.tls.scan
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 # V-007 -- Weak cipher suite
 # Tool: testssl.sh + openssl + nmap fallbacks
 # Usage: bash V-007.sh <target> <session_output_dir>

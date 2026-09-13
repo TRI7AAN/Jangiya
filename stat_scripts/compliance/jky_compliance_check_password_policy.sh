@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_password_policy
+# @jocky:domain compliance
+# @jocky:description Assess registration password policy via passive curl page and field analysis
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.web.read
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 # V-013 -- Weak password policy
 # Tool: curl (passive registration page analysis)
 # Usage: bash V-013.sh <target> <session_output_dir>

@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_scan_build_secrets
+# @jocky:domain compliance
+# @jocky:description Fetch remote .env and git config via curl and print truncated contents
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.web.read
+# @jocky:timeout_seconds 60
+# @jocky:depends_on
 # V-113 -- Build secret exposure
 # Tool: trufflehog_cicd
 # Usage: bash V-113.sh <target> <session_output_dir>

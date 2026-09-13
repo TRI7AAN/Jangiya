@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_recon_grab_banners
+# @jocky:domain recon
+# @jocky:description Grab service banners via nmap, curl, netcat and TLS probes
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs banners: text
+# @jocky:capability recon.banner.grab
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 # V-005 -- Banner grabbing/fingerprinting
 # Tool: nmap -sV + banner probes
 # Usage: bash V-005.sh <target> <session_output_dir>

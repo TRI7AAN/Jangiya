@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_tls_version
+# @jocky:domain compliance
+# @jocky:description Probe offered SSL/TLS versions via testssl.sh, openssl, nmap and curl
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.tls.scan
+# @jocky:timeout_seconds 300
+# @jocky:depends_on
 # V-006 -- Weak TLS/SSL version
 # Tool: testssl.sh + openssl + nmap fallbacks
 # Usage: bash V-006.sh <target> <session_output_dir>

@@ -1,4 +1,12 @@
 #!/bin/bash
+# @jocky:function jky_compliance_check_hsts
+# @jocky:domain compliance
+# @jocky:description Check HSTS header presence via curl across HTTPS endpoints and HTTP redirect
+# @jocky:inputs target: string, session_dir: string = ""
+# @jocky:outputs report: text
+# @jocky:capability compliance.web.read
+# @jocky:timeout_seconds 120
+# @jocky:depends_on
 # V-010 -- Missing HSTS header
 # Tool: curl -I
 # Usage: bash V-010.sh <target> <session_output_dir>
