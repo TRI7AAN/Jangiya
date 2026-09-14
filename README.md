@@ -42,6 +42,7 @@ only), and ends by appending to `logs.md`.
 | `wiki/18-project-alignment-audit.md` | Whole-project SIH26148 alignment audit with verified status, gaps, and recommended order |
 | `wiki/19-phase6-embedding.md` | Phase 6 record: SHA-256 freshness, exact embedding, `jockyc`, standalone artifacts, and verification |
 | `wiki/20-phase7-runtime.md` | Phase 7 record: isolated dispatcher, runtime rechecks, evidence/output staging, complete manifests, hashes, and verification |
+| `wiki/24-phase10-design-rationale.md` | Phase 10 record: judge-facing rationale — 30-row literal-PS clause map, per-refusal justifications, regression evidence, honest non-built list, 10-minute verification |
 | `include/jocky/` | C++20 frontend + Phase 6 embedding + Phase 7 runtime + Phase 7.5 control-flow execution: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` + `runtime/dispatcher.hpp` + `runtime/predicate_evaluator.hpp` + `runtime/control_flow_executor.hpp` |
 | `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) + `jocky shake` (gate → dependency-ordered script list) |
 | `src/compiler/main.cpp` | `jockyc` static chain, generated standalone source, and shell-free host-compiler invocation |

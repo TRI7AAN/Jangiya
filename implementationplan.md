@@ -35,9 +35,23 @@ rationale document exists to check against.
 
 ## Definition of Done
 
-- [ ] One document mapping each literal-PS clause to JOCKY's
+- [x] One document mapping each literal-PS clause to JOCKY's
       reframed behavior with evidence pointers.
-- [ ] Every evasion/weaponization exclusion justified against a
+      (`wiki/24-phase10-design-rationale.md` §2: 30-row B/D/E map,
+      2026-09-14.)
+- [x] Every evasion/weaponization exclusion justified against a
       legitimate underlying need it still satisfies.
-- [ ] Passes a hostile read against the literal PS text.
-- [ ] Phase 1–9 regression remains green.
+      (`wiki/24` §4.1–4.4: polymorphism, in-memory family, networked
+      control, "unhindered" + LLVM.)
+- [x] Passes a hostile read against the literal PS text.
+      (Self-performed hostile read this session: the doc's §6
+      discloses `jocky verify` unimplemented, 30/38 in-sandbox
+      failures, Linux-only, no central management, 15 review scripts,
+      SIGABRT preflight gap — no weaponizable component, no unlogged/
+      ungated/evidence-mutating behavior claimed. Independent hostile
+      read belongs to the Phase 11 gap-check audit.)
+- [x] Phase 1–9 regression remains green.
+      (This session: clean Release build 0 warnings; check 0; scan
+      38/0/16; Phase 3/4/5/5.5 refusal patterns hold; ctest 10/10;
+      quarantine baselines match `wiki/11` §3; control-flow semantics
+      re-proven. Full numbers: `wiki/24` §5.)
