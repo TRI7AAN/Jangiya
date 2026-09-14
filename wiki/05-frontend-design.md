@@ -53,7 +53,9 @@ the manifest proving integrity:
    case.jky` for the interpreted twin): adapters normalize, calls execute
    under the capability gate, the static report lands in `out/`.
 4. **`verify`** — `jocky verify manifest.json`: re-hashes inputs/outputs,
-   replays manifest entries, prints PASS. The closing slide is the
+   replays manifest entries, prints PASS. **[Command UNIMPLEMENTED —
+   backlog wiki/25; demo with the wiki/24 §5.4 manual re-hash +
+   parity-harness tamper check.]** The closing slide is the
    manifest itself — the integrity proof is the product.
 
 ## 4. Track B: Java IDE Shell (Phases 12–16, parallel to Track A)

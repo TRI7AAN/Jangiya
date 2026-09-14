@@ -59,8 +59,9 @@ triage — that:
    declared evidence path.
 3. **Produces a hash-based integrity manifest.** Every run emits a manifest
    (case_id, script hashes, runtime version, timestamps, input/output
-   hashes, authorization, per-script-execution entries) verifiable with
-   `jocky verify`. A run without a complete manifest is a failed run.
+   hashes, authorization, per-script-execution entries) verifiable by
+   re-hash (manual procedure wiki/24 §5.4; the `jocky verify` command
+   itself is UNIMPLEMENTED — backlog wiki/25). A run without a complete manifest is a failed run.
 4. **Selectively embeds only what it uses.** `jockyc` tree-shakes the
    curated Kalki/Trinetra stdlib (47 functions at Phase 1 close, growing;
    each carrying a `@jocky:` metadata header) and embeds only the functions a given `.jky` file actually calls

@@ -2,7 +2,7 @@
 
 # SIH WINNER 2026
 
-## JOCKY — Phases 1–8 Complete, Phase 9 Current
+## JOCKY — Track A Complete (Phases 0–11, closed 2026-09-14)
 
 **JOCKY** is a C++20 compiler/runtime for a forensic domain-specific
 language (`.jky` files), built for **SIH26148 (NTRO, SIH 2026,
@@ -17,7 +17,7 @@ only), and ends by appending to `logs.md`.
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
 | `roadmap.md` | Full plan, Phases 0–11 Track A + Track B IDE shell (Phases 12–16, changes rarely) |
-| `implementationplan.md` | Current phase detail only (Phase 9: real registry finalization) |
+| `implementationplan.md` | Track A close-out note (no active phase; future Track A work is corrective/backlog-driven — see `wiki/25`) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
 | `wiki/01-prd.md` | Product requirements + the permanent no-evasion boundary |
@@ -43,6 +43,7 @@ only), and ends by appending to `logs.md`.
 | `wiki/19-phase6-embedding.md` | Phase 6 record: SHA-256 freshness, exact embedding, `jockyc`, standalone artifacts, and verification |
 | `wiki/20-phase7-runtime.md` | Phase 7 record: isolated dispatcher, runtime rechecks, evidence/output staging, complete manifests, hashes, and verification |
 | `wiki/24-phase10-design-rationale.md` | Phase 10 record: judge-facing rationale — 30-row literal-PS clause map, per-refusal justifications, regression evidence, honest non-built list, 10-minute verification |
+| `wiki/25-final-ps-coverage.md` | Phase 11 record: final SIH26148 coverage audit — from-scratch regression (zero deviations), 30-row re-verified matrix, exclusions ledger, pipeline-operators-parse-only finding, SIGABRT/verify/E3j resolutions, post-Track-A backlog |
 | `include/jocky/` | C++20 frontend + Phase 6 embedding + Phase 7 runtime + Phase 7.5 control-flow execution: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` + `runtime/dispatcher.hpp` + `runtime/predicate_evaluator.hpp` + `runtime/control_flow_executor.hpp` |
 | `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) + `jocky shake` (gate → dependency-ordered script list) |
 | `src/compiler/main.cpp` | `jockyc` static chain, generated standalone source, and shell-free host-compiler invocation |
@@ -57,7 +58,7 @@ only), and ends by appending to `logs.md`.
 | `tests/phase6/` | SHA-256 drift unit test and `jockyc` integration test (exact set/order, extraction, denied gate, registry independence, zero scripts) |
 | `tests/phase7/` | Shared-runtime safety suite and registry-deleted standalone execution integration |
 | `tests/phase8/` | Six parity fixtures (direct/if-data/for/while-natural/while-capped/nested) + `run_parity.sh`/`parity_diff.py` harness proving compiled and interpreted manifests agree |
-| `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `shared/` (testssl wrapper + vendored `testssl.sh`) — 7 headers present, 41 pending Phase 9 |
+| `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `timeline/` (3), `report/` (2), `shared/` (testssl wrapper + vendored `testssl.sh`) — 38 headers present, 16 headerless (15 pending human review + vendored testssl.sh) |
 | `_quarantine/` | Origin-unconfirmed files (CSV/JSON reference data), excluded from registry/scanner/docs pending owner confirmation |
 
 ### Status
@@ -107,19 +108,25 @@ only), and ends by appending to `logs.md`.
   compiled/interpreted parity harness (exact match minus timing fields,
   script_sha256 asserted separately), 6/6 control-flow fixtures green —
   complete, logged in `wiki/22-phase8-interpreter-parity.md`
-- [ ] Phase 9 (current): real registry finalization — see
-  `implementationplan.md`
+- [x] Phase 9: real registry finalization (26 headers annotated, 5
+  timeline/report starters, 38/0/16, smoke 8/30 zero unlogged) —
+  complete, logged in `wiki/23-phase9-registry-finalization.md`
+- [x] Phase 10: judge-facing design rationale — complete, logged in
+  `wiki/24-phase10-design-rationale.md`
+- [x] Phase 11: final SIH26148 coverage audit — complete, logged in
+  `wiki/25-final-ps-coverage.md`. **Track A closed 2026-09-14;**
+  remaining work is the `wiki/25` §6 corrective backlog or Track B.
 
 ### Track plan (A: toolchain, B: Java IDE shell)
 
-Track A is the forensic toolchain (Phases 5–8 complete, Phase 9 current
-per Status above). Track B is a parallel Java IDE shell over the CLI —
+Track A is the forensic toolchain, **complete and closed 2026-09-14
+(Phases 0–11; see `wiki/25-final-ps-coverage.md`)**. Track B is a parallel Java IDE shell over the CLI —
 it starts immediately on the existing `jocky`/`jockyc` commands and never
 blocks Track A:
 
 | Phase | Track | Focus | Depends on |
 | ----- | ----- | ----- | ---------- |
-| 5 | A | Tree-shaking resolver (in progress) | Phase 4 |
+| 5 | A | Tree-shaking resolver (complete) | Phase 4 |
 | 6 | A | Script embedding + jockyc binary generation | Phase 5 |
 | 7 | A | Sandboxed runtime dispatcher + manifest logging | Phase 6 |
 | 8 | A | jocky interpreter + compiled/interpreted parity test | Phase 7 |

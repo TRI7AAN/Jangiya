@@ -85,7 +85,7 @@ resolves every `call` against the registry (Phase 3, no capability
 gate); `jocky gate <file.jky>` runs the full Phase 4 chain
 (resolve → bind → gate) and prints the `ALLOWED`/`DENIED` authorization
 verdict; `jocky verify <manifest.json>` re-hashes
-inputs/outputs and checks the manifest; `scan_registry <dir>` rebuilds the
+inputs/outputs and checks the manifest **[UNIMPLEMENTED — backlog wiki/25]**; `scan_registry <dir>` rebuilds the
 registry index from `@jocky:` headers.
 
 ## 3. Stdlib Subsystem: 48 Registry Functions and Growing

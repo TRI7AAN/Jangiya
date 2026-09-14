@@ -11,7 +11,7 @@ jocky <file.jky> [--registry <dir>] [--output-root <dir>] [--manifest <path>] [-
 jocky check <file.jky>
 jocky resolve <file.jky> [--registry <dir>]
 jocky gate <file.jky> [--registry <dir>]
-jocky verify <manifest.json>
+jocky verify <manifest.json>   [UNIMPLEMENTED — backlog wiki/25; manual procedure wiki/24 §5.4]
 scan_registry <dir>
 ```
 
@@ -21,7 +21,7 @@ scan_registry <dir>
 | `jocky <file.jky> [--registry <dir>] [--output-root <dir>] [--manifest <path>] [--max-executions <n>] [--max-iterations <n>]` | Phase 8 interpretation: full pipeline lex → parse → resolve → bound-check → bind → gate → execute, with NO shake step (shaking decides what to embed; nothing is embedded here) and NO compile step. Each authorized call is sourced via `load_registry_runtime_call` (bytes read from disk; drift becomes a manifest-logged `integrity_denied` at dispatch); predicate evaluation, if/for/while semantics, ceilings, sandboxing, and manifest writing are the shared unmodified Phase 7.5 path. Registry defaults to `stat_scripts/`; manifest defaults to `<output-root>/manifest.json` (`out/` by default); ceiling flags default to the shared `RuntimeOptions` values. Prints `MANIFEST <path> status=<status>` (same line as compiled `run`) plus `EXECUTED <E> calls (<fn> x<n>, ...) [, N loop(s) capped], status=<status>`; exit code mirrors the run status. Denied gates print the `jocky gate` verdict and exit 1; all other failures use `file:line:col` diagnostics, exit 1. Full record in `wiki/22-phase8-interpreter-parity.md`. |
 | `jocky resolve <file.jky> [--registry <dir>]` | Phase 3 diagnostic: parse, then resolve every `call` against the registry index (`stat_scripts/` by default), printing each resolved call with its inferred result type and `let`-binding types. Errors use `file:line:col` diagnostics; exit non-zero. Capability gating is NOT applied here — that is `jocky gate` (Phase 4). |
 | `jocky gate <file.jky> [--registry <dir>]` | Phase 4 authorization verdict: lex → parse → resolve → bind (exactly one `case`, `BindingError` otherwise) → fail-closed gate over every resolved call's recorded capability. Prints `ALLOWED: N calls authorized under case '<name>'` with the per-call list (exit 0), or `DENIED: N violation(s) under case '<name>'` with one `<file>:<line>:<col>` denial line per violating call naming function + required capability + case (exit 1). Binder-stage refusals print `error: <file>: <message> (case binding)`. Full record in `wiki/13-phase4-capability-gate.md`. |
-| `jocky verify <manifest.json>` | Re-hash declared inputs/outputs, re-check per-execution entries, report PASS/FAIL. Reads only the manifest and referenced artifacts; never executes scripts. |
+| `jocky verify <manifest.json>` | **[UNIMPLEMENTED as of Track A close — backlog wiki/25.]** Specified behavior (not yet built): re-hash declared inputs/outputs, re-check per-execution entries, report PASS/FAIL. Reads only the manifest and referenced artifacts; never executes scripts. Current stand-ins: manual `sha256sum` vs `program_sha256` (procedure wiki/24 §5.4) + parity-harness tamper negative-control (wiki/22). |
 | `scan_registry <dir>` | Walk `<dir>` for `@jocky:` headers, build (or rebuild) the registry index, report indexed functions and header errors. |
 
 ## 2. FIR JSON Schema (Forensic IR)

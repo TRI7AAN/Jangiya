@@ -72,7 +72,8 @@ documentation. Violation of any rule is a stop-work event: halt, log it in
 - `jocky <file.jky>` — **interprets** directly against the filesystem
   registry, no compile step.
 - `jocky verify <manifest.json>` — re-hashes inputs/outputs and checks the
-  manifest.
+  manifest. **[UNIMPLEMENTED as of Track A close — backlog wiki/25. Do not
+  claim this command works; use the wiki/24 §5.4 manual procedure.]**
 - `scan_registry <dir>` — scans a directory for `@jocky:` headers and builds
   the registry index.
 - Compiled and interpreted execution must produce matching manifests for the
