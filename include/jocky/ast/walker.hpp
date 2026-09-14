@@ -63,6 +63,18 @@ void for_each_call_in_value(const ExprValue& value, Fn&& fn) {
     }
 }
 
+// True when a predicate embeds at least one `call` operand. The
+// while-loop executor uses this to honor a zero iteration ceiling
+// without spawning: a call-free condition can always be evaluated
+// (so natural exit needs no dispatch), while a call-bearing one
+// cannot be decided without dispatching — so the ceiling wins.
+inline bool predicate_has_calls(const Predicate& pred) {
+    bool found = false;
+    for_each_call_in_predicate(
+        pred, [&](const CallExpr&) { found = true; });
+    return found;
+}
+
 template <typename Fn>
 void for_each_call_in_pipeline(const PipelineExpr& expr, Fn&& fn) {
     for_each_call_in_value(*expr.head, fn);

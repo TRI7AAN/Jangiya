@@ -92,7 +92,7 @@ inline bool arg_value_matches(const std::string& declared,
         case ExprValue::Kind::Int: return declared == "int";
         case ExprValue::Kind::Float: return declared == "float";
         case ExprValue::Kind::Bool: return declared == "bool";
-        case ExprValue::Kind::List: return false;
+        case ExprValue::Kind::List: return declared == "list";
         case ExprValue::Kind::Field:
         case ExprValue::Kind::Source:
         case ExprValue::Kind::Correlate:

@@ -47,7 +47,9 @@
 // fail-closed run abort (manifest-logged error, no further dispatch), so
 // a branch is never chosen on a guess.
 
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -182,6 +184,15 @@ inline bool as_number(const Value& value, double& number) {
     return false;
 }
 
+inline bool numbers_equal(double left, double right) {
+    if (left == right) return true;
+    const double spread = std::fabs(left) + std::fabs(right);
+    if (spread == 0.0) return true;
+    const double scale = (spread > 1.0) ? spread : 1.0;
+    return std::fabs(left - right) <=
+           std::numeric_limits<double>::epsilon() * scale * 4.0;
+}
+
 inline bool values_equal(const Value& left, const Value& right) {
     if (left.kind == Value::Kind::List ||
         right.kind == Value::Kind::List) {
@@ -200,7 +211,13 @@ inline bool values_equal(const Value& left, const Value& right) {
     double right_num = 0.0;
     const bool left_is_num = as_number(left, left_num);
     const bool right_is_num = as_number(right, right_num);
-    if (left_is_num && right_is_num) return left_num == right_num;
+    if (left_is_num && right_is_num) {
+        if (left.kind == Value::Kind::Int &&
+            right.kind == Value::Kind::Int) {
+            return left.integer == right.integer;
+        }
+        return numbers_equal(left_num, right_num);
+    }
     if (left_is_num != right_is_num) {
         throw PredicateError(
             "cannot compare a number against a non-number with ==/!= "
@@ -226,14 +243,16 @@ inline bool values_ordered(const std::string& op, const Value& left,
         if (op == "<") return left_num < right_num;
         if (op == "<=") return left_num <= right_num;
         if (op == ">") return left_num > right_num;
-        return left_num >= right_num;  // ">="
+        if (op == ">=") return left_num >= right_num;
+        throw PredicateError("unknown ordering operator '" + op + "'");
     }
     if (left.kind == Value::Kind::Str &&
         right.kind == Value::Kind::Str) {
         if (op == "<") return left.str < right.str;
         if (op == "<=") return left.str <= right.str;
         if (op == ">") return left.str > right.str;
-        return left.str >= right.str;  // ">="
+        if (op == ">=") return left.str >= right.str;
+        throw PredicateError("unknown ordering operator '" + op + "'");
     }
     throw PredicateError(
         "cannot order these operand kinds with '" + op +

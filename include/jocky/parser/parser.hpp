@@ -30,7 +30,11 @@ public:
 
 class Parser {
 public:
-    explicit Parser(std::vector<Token> tokens) : toks_(std::move(tokens)) {}
+    explicit Parser(std::vector<Token> tokens) : toks_(std::move(tokens)) {
+        if (toks_.empty()) {
+            toks_.push_back(Token{TokenKind::EndOfFile, "", 1, 1});
+        }
+    }
 
     Program parse_program() {
         Program prog;
@@ -80,6 +84,9 @@ private:
     const Token& advance() {
         if (!check(TokenKind::EndOfFile)) {
             ++pos_;
+        }
+        if (pos_ == 0) {
+            return toks_.front();
         }
         return previous();
     }

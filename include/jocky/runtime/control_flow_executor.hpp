@@ -272,16 +272,43 @@ inline void execute_while_stmt(const WhileStmt& loop, ExecContext& ctx) {
     const std::size_t ceiling =
         (configured > 0) ? configured
                          : ctx.state.options->max_while_iterations;
+    const bool cond_has_calls = walker::predicate_has_calls(loop.cond);
     ctx.int_scopes.emplace_back();
     for (std::size_t iter = 0;; ++iter) {
-        check_loop_budget(ctx, "while loop");
-        dispatch_condition_calls(loop.cond, ctx);
-        if (!eval_condition(loop.cond, ctx, "while")) break;
-        if (iter >= ceiling) {
+        if (iter >= ceiling && cond_has_calls) {
+            // A call-bearing condition cannot be decided without
+            // dispatching, so at/past the ceiling the ceiling wins:
+            // record the marker instead of spawning for a loop whose
+            // body is disabled (notably ceiling 0 dispatches nothing).
+            // Call-free conditions fall through and evaluate below,
+            // so a naturally-false condition exits cleanly even at
+            // the boundary.
             // Distinct, visible outcome — never silent truncation.
             // The run still fails overall (the program did not complete
             // as written), consistent with every other non-success
             // outcome flipping all_ok.
+            ExecutionRecord marker;
+            marker.function = "<while-loop>";
+            marker.start_utc = utc_now();
+            marker.outcome = "while_ceiling";
+            marker.stderr_text =
+                "while loop iteration ceiling (" +
+                std::to_string(ceiling) +
+                ") reached; loop aborted after " + std::to_string(iter) +
+                " iterations";
+            finalize_entry(marker);
+            ctx.state.manifest->executions.push_back(marker);
+            *ctx.state.all_ok = false;
+            persist_manifest(ctx.state.manifest_path, *ctx.state.manifest);
+            break;
+        }
+        check_loop_budget(ctx, "while loop");
+        dispatch_condition_calls(loop.cond, ctx);
+        if (!eval_condition(loop.cond, ctx, "while")) break;
+        if (iter >= ceiling) {
+            // Call-free condition evaluated true at/past the ceiling:
+            // same distinct marker as above (the loop did not complete
+            // as written), reached without any dispatch.
             ExecutionRecord marker;
             marker.function = "<while-loop>";
             marker.start_utc = utc_now();

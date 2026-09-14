@@ -87,7 +87,7 @@ std::vector<std::string> split_list(const std::string& text) {
             current += c;
         }
     }
-    if (!trim(current).empty() || !parts.empty()) {
+    if (!trim(current).empty()) {
         parts.push_back(trim(current));
     }
     return parts;

@@ -82,7 +82,10 @@ public:
             char c = peek();
             if (c == '"') {
                 tokens_.push_back(scan_string(tok_line, tok_col));
-            } else if (std::isdigit(static_cast<unsigned char>(c))) {
+            } else if (std::isdigit(static_cast<unsigned char>(c)) ||
+                       (c == '.' &&
+                        std::isdigit(static_cast<unsigned char>(
+                            peek_next())))) {
                 tokens_.push_back(scan_number(tok_line, tok_col));
             } else if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
                 tokens_.push_back(scan_word(tok_line, tok_col));
@@ -239,6 +242,18 @@ private:
             while (!at_end() &&
                    std::isdigit(static_cast<unsigned char>(peek()))) {
                 advance();
+            }
+        } else if (peek() == '.' && start != pos_) {
+            // Trailing-dot float (`5.`): consume the dot only when it
+            // cannot start a dotted continuation (field access uses
+            // ident `.` ident, idents never start with a digit, so a
+            // letter after the dot means this dot belongs elsewhere).
+            const char after =
+                static_cast<char>(std::tolower(
+                    static_cast<unsigned char>(peek_next())));
+            if (!(after == '_' || (after >= 'a' && after <= 'z'))) {
+                is_float = true;
+                advance();  // consume '.'
             }
         }
         std::string lexeme = src_.substr(start, pos_ - start);
