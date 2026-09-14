@@ -2,14 +2,29 @@
 
 # SIH WINNER 2026
 
-## JOCKY — Track A Complete (Phases 0–11, closed 2026-09-14)
+## JOCKY — Track A Complete (Phases 0–11, closed 2026-09-14) + post-close backlog batches
 
 **JOCKY** is a C++20 compiler/runtime for a forensic domain-specific
 language (`.jky` files), built for **SIH26148 (NTRO, SIH 2026,
 Blockchain & Cybersecurity)**: authorized, low-footprint, fully
-auditable computer & network forensic analysis. Every agent session
-starts at `AGENTS.md`, then `implementationplan.md` (current phase
-only), and ends by appending to `logs.md`.
+auditable computer & network forensic analysis. Track A is closed; session
+protocol lives in `AGENTS.md` (entry point, safety rules, conventions,
+toolchain), close-out state in `wiki/25-final-ps-coverage.md`, history in
+`logs.md`.
+
+### Quick start
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+./build/scan_registry stat_scripts/            # 39 registered, 0 rejected, 16 skipped
+./build/jocky check samples/sample.jky
+./build/jocky gate mycase.jky --registry stat_scripts
+./build/jocky mycase.jky --registry stat_scripts \
+  --output-root out --manifest out/manifest.json
+./build/jocky verify out/manifest.json         # VERIFY PASS / FAIL
+./build/jocky console <case-dir>               # offline REPL (no sockets)
+ctest --test-dir build                         # 10/10
+```
 
 ### Repo map
 
@@ -17,7 +32,7 @@ only), and ends by appending to `logs.md`.
 | ---- | ---------- |
 | `AGENTS.md` | Session entry point: identity, hard safety rules, conventions, toolchain, protocol |
 | `roadmap.md` | Full plan, Phases 0–11 Track A + Track B IDE shell (Phases 12–16, changes rarely) |
-| `implementationplan.md` | Track A close-out note (no active phase; future Track A work is corrective/backlog-driven — see `wiki/25`) |
+| `implementationplan.md` | Removed from tree post-close (user-removed; close-out state lives in `wiki/25-final-ps-coverage.md` + `logs.md`) |
 | `logs.md` | Session log, one row per session |
 | `wiki/00-index.md` | Wiki table of contents |
 | `wiki/01-prd.md` | Product requirements + the permanent no-evasion boundary |
@@ -39,17 +54,21 @@ only), and ends by appending to `logs.md`.
 | `wiki/16-phase5-tree-shaking.md` | Phase 5 record: `shake` naming decision, dependency-closure resolver, throwaway 12-script registry, five fixture runs, Phase 6 handoff |
 | `wiki/17-control-flow-proposal.md` | PROPOSAL (undecided): C-style control flow in `.jky`, bounded vs unbounded paths, recommendation awaiting confirm |
 | `wiki/17-control-flow.md` | Phase 5.5 record: C-style `if`/`for`/`while`, three boundable `for` forms, shared AST walker, runtime-ceiling commitment, six fixture runs |
+| `wiki/18-phase6-7-audit.md` | Phase 6/7 audit: standalone/runner checks, gaps driving Phase 7.5 |
 | `wiki/18-project-alignment-audit.md` | Whole-project SIH26148 alignment audit with verified status, gaps, and recommended order |
 | `wiki/19-phase6-embedding.md` | Phase 6 record: SHA-256 freshness, exact embedding, `jockyc`, standalone artifacts, and verification |
 | `wiki/20-phase7-runtime.md` | Phase 7 record: isolated dispatcher, runtime rechecks, evidence/output staging, complete manifests, hashes, and verification |
+| `wiki/21-phase7-5-control-flow.md` | Phase 7.5 record: predicate evaluator + statement-tree executor, schema 0.2.0, hostile fixtures |
+| `wiki/22-phase8-interpreter-parity.md` | Phase 8 record: `jocky` interpreter + compiled/interpreted parity harness, 6/6 fixtures |
+| `wiki/23-phase9-registry-finalization.md` | Phase 9 record: annotation table, timeline/report starters, smoke table, stray-change incident |
 | `wiki/24-phase10-design-rationale.md` | Phase 10 record: judge-facing rationale — 30-row literal-PS clause map, per-refusal justifications, regression evidence, honest non-built list, 10-minute verification |
 | `wiki/25-final-ps-coverage.md` | Phase 11 record: final SIH26148 coverage audit — from-scratch regression (zero deviations), 30-row re-verified matrix, exclusions ledger, pipeline-operators-parse-only finding, SIGABRT/verify/E3j resolutions, post-Track-A backlog |
-| `include/jocky/` | C++20 frontend + Phase 6 embedding + Phase 7 runtime + Phase 7.5 control-flow execution: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` + `runtime/dispatcher.hpp` + `runtime/predicate_evaluator.hpp` + `runtime/control_flow_executor.hpp` |
-| `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) + `jocky shake` (gate → dependency-ordered script list) |
+| `include/jocky/` | C++20 frontend + Phase 6 embedding + Phase 7 runtime + Phase 7.5 control-flow execution: `lexer/`, `ast/` (+`ast/walker.hpp` shared call collector), `parser/` + `stdlib/script_metadata.hpp` + `semantic/call_resolver.hpp` + `semantic/case_binder.hpp` + `semantic/bound_checker.hpp` + `policy/capability_gate.hpp` + `fir/script_resolver.hpp` + `runtime/dispatcher.hpp` + `runtime/predicate_evaluator.hpp` + `runtime/control_flow_executor.hpp` + `runtime/pipeline_engine.hpp` + `runtime/verifier.hpp` |
+| `src/cli/main.cpp` | `jocky check` (lex → parse → AST) + `jocky resolve` (parse → resolve against registry) + `jocky gate` (resolve → bind → gate verdict) + `jocky shake` (gate → dependency-ordered script list) + `jocky verify` (re-hash manifest artifacts → PASS/FAIL) + `jocky console` (offline REPL over a case dir) + `jocky <file.jky>` (interpreted run with manifest) |
 | `src/compiler/main.cpp` | `jockyc` static chain, generated standalone source, and shell-free host-compiler invocation |
 | `src/stdlib/metadata_scanner.cpp` | `scan_registry` engine (header parse, validation, JSON index, scan-time SHA-256) |
 | `tools/scan_registry.cpp` | `scan_registry <dir>` CLI driver |
-| `CMakeLists.txt` | CMake 3.20+, C++20, `jocky`, `jockyc`, `scan_registry`, and Phase 6/7 CTest targets |
+| `CMakeLists.txt` | CMake 3.20+, C++20, `jocky`, `jockyc`, `scan_registry`, and Phase 6/7/8 CTest targets |
 | `samples/sample.jky` | Sample exercising every grammar construct (parse-level fixture; intentionally unresolved — see `wiki/12`) |
 | `tests/phase3/` | Six `call` resolution fixtures (unknown/missing/default-ok/mismatch/extra/correct) for `jocky resolve` |
 | `tests/phase4/` | Six gate fixtures (zero/duplicate cases, field-absent vs field-empty, exact-allow, partial-allow with both denials) for `jocky gate` |
@@ -57,8 +76,10 @@ only), and ends by appending to `logs.md`.
 | `tests/phase5.5/` | Six control-flow fixtures (if-else/for-literal/for-const/for-callbound/while/nested) for all four commands |
 | `tests/phase6/` | SHA-256 drift unit test and `jockyc` integration test (exact set/order, extraction, denied gate, registry independence, zero scripts) |
 | `tests/phase7/` | Shared-runtime safety suite and registry-deleted standalone execution integration |
+| `tests/phase7.5/` | Control-flow hostile fixtures (taken-branch-only `if`, real `for` trips, capped `while`) |
 | `tests/phase8/` | Six parity fixtures (direct/if-data/for/while-natural/while-capped/nested) + `run_parity.sh`/`parity_diff.py` harness proving compiled and interpreted manifests agree |
-| `stat_scripts/` | Registry: `recon/` (10), `compliance/` (24), `hostforensics/` (7), `netforensics/` (6), `timeline/` (3), `report/` (2), `shared/` (testssl wrapper + vendored `testssl.sh`) — 38 headers present, 16 headerless (15 pending human review + vendored testssl.sh) |
+| `tests/phase9/` | Full-registry smoke harness (`run_smoke.sh` + `smoke_fixtures.json`): per-function `.jky` runs, 20 PASS / 19 environment-failures, zero unlogged |
+| `stat_scripts/` | Registry: `recon/` (10), `compliance/` (25, incl. `jky_compliance_audit_drivers`), `hostforensics/` (7), `netforensics/` (6), `timeline/` (3), `report/` (2), `shared/` (testssl wrapper + vendored `testssl.sh`) — 39 headers present, 16 headerless (15 pending human review + vendored testssl.sh) |
 | `_quarantine/` | Origin-unconfirmed files (CSV/JSON reference data), excluded from registry/scanner/docs pending owner confirmation |
 
 ### Status
@@ -114,13 +135,27 @@ only), and ends by appending to `logs.md`.
 - [x] Phase 10: judge-facing design rationale — complete, logged in
   `wiki/24-phase10-design-rationale.md`
 - [x] Phase 11: final SIH26148 coverage audit — complete, logged in
-  `wiki/25-final-ps-coverage.md`. **Track A closed 2026-09-14;**
-  remaining work is the `wiki/25` §6 corrective backlog or Track B.
+  `wiki/25-final-ps-coverage.md`. **Track A closed 2026-09-14.**
+- [x] Post-close batch 1 (`ef02713`): 9 lexer/parser/scanner/resolver/runtime
+  fixes (float literals, parser guards, trailing-comma lists, list-literal
+  inputs, while-ceiling pre-dispatch, predicate ordering/float-`==`) — clean
+  build, ctest 10/10, phase3/4 matrices unchanged.
+- [x] Post-close batch 2 (`0cfe32a`, five `wiki/25` §6 backlog items):
+  `jocky verify <manifest.json>` (re-hash → PASS/FAIL — closes the `wiki/25`
+  §6.1 backlog item), pipeline-operator runtime
+  (where/filter/having, select, sort_by, limit, group_by key validation,
+  emit binding, write staging; `correlate` aborts loudly), smoke hardening
+  (20/19, remainder need network or absent tools), `jky_compliance_audit_drivers`
+  (read-only `/proc/modules` vs optional blocklist), `jocky console`
+  (offline REPL, no sockets) — clean build, ctest 10/10, scan 39/0/16,
+  live run+verify PASS. Remaining work is the rest of the `wiki/25` §6
+  backlog or Track B.
 
 ### Track plan (A: toolchain, B: Java IDE shell)
 
 Track A is the forensic toolchain, **complete and closed 2026-09-14
-(Phases 0–11; see `wiki/25-final-ps-coverage.md`)**. Track B is a parallel Java IDE shell over the CLI —
+(Phases 0–11; see `wiki/25-final-ps-coverage.md`)**, plus two post-close
+backlog batches (`ef02713`, `0cfe32a` — see Status). Track B is a parallel Java IDE shell over the CLI —
 it starts immediately on the existing `jocky`/`jockyc` commands and never
 blocks Track A:
 
