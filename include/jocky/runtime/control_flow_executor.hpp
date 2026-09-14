@@ -53,6 +53,7 @@
 #include "jocky/lexer/lexer.hpp"
 #include "jocky/parser/parser.hpp"
 #include "jocky/runtime/dispatcher.hpp"
+#include "jocky/runtime/pipeline_engine.hpp"
 #include "jocky/runtime/predicate_evaluator.hpp"
 
 namespace jocky {
@@ -205,6 +206,166 @@ inline std::int64_t resolve_bound(const BoundExpr& bound,
 
 inline void execute_block(const Block& block, ExecContext& ctx);
 
+inline std::string render_head_value(const ExprValue& value) {
+    switch (value.kind) {
+        case ExprValue::Kind::String: return value.str;
+        case ExprValue::Kind::Int:
+            return std::to_string(value.integer);
+        case ExprValue::Kind::Float: {
+            std::ostringstream text;
+            text << value.floating;
+            return text.str();
+        }
+        case ExprValue::Kind::Bool:
+            return value.boolean ? "true" : "false";
+        case ExprValue::Kind::List: {
+            std::string out;
+            for (std::size_t i = 0; i < value.list.size(); ++i) {
+                if (i != 0) out += ",";
+                out += render_head_value(*value.list[i]);
+            }
+            return out;
+        }
+        default: return "";
+    }
+}
+
+inline void run_pipeline_stages(const PipelineStmt& stmt,
+                                ExecContext& ctx) {
+    if (stmt.expr.steps.empty()) return;
+    if (stmt.expr.head->kind == ExprValue::Kind::Correlate) {
+        throw PredicateError(
+            "correlate() as a pipeline head is not executable (no "
+            "join engine; name both tables via let bindings first)");
+    }
+    if (stmt.expr.head->kind == ExprValue::Kind::Source) {
+        throw PredicateError(
+            "source '" + stmt.expr.head->source +
+            "' as a pipeline head is not executable (evidence streams "
+            "rows; materialize them with a call first)");
+    }
+    std::string head_text;
+    switch (stmt.expr.head->kind) {
+        case ExprValue::Kind::Call: {
+            const std::string key = call_key(stmt.expr.head->call->line,
+                                             stmt.expr.head->call->col);
+            const auto found = ctx.values.call_outputs.find(key);
+            head_text = (found == ctx.values.call_outputs.end())
+                            ? ""
+                            : found->second;
+            break;
+        }
+        case ExprValue::Kind::Field: {
+            std::string name;
+            for (std::size_t i = 0; i < stmt.expr.head->field.path.size();
+                 ++i) {
+                if (i != 0) name += ".";
+                name += stmt.expr.head->field.path[i];
+            }
+            const auto found = ctx.values.bindings.find(name);
+            if (found == ctx.values.bindings.end()) {
+                throw PredicateError(
+                    "pipeline head references unknown binding '" + name +
+                    "'");
+            }
+            head_text = found->second;
+            break;
+        }
+        default:
+            head_text = render_head_value(*stmt.expr.head);
+            break;
+    }
+    std::vector<std::string> wanted;
+    for (const PipelineStep& step : stmt.expr.steps) {
+        switch (step.op.kind) {
+            case PipelineOp::Kind::Filter:
+            case PipelineOp::Kind::Where:
+            case PipelineOp::Kind::Having:
+                pipeline_detail::predicate_fields(*step.op.predicate,
+                                                  wanted);
+                break;
+            case PipelineOp::Kind::Select:
+                for (const SelectItem& item : step.op.select_items) {
+                    if (!item.field.path.empty()) {
+                        wanted.push_back(item.field.path.front());
+                    }
+                }
+                break;
+            case PipelineOp::Kind::SortBy:
+                for (const FieldRef& key : step.op.sort_fields) {
+                    if (!key.path.empty()) wanted.push_back(key.path.front());
+                }
+                break;
+            case PipelineOp::Kind::GroupBy:
+                for (const FieldRef& key : step.op.group_fields) {
+                    if (!key.path.empty()) wanted.push_back(key.path.front());
+                }
+                break;
+            default: break;
+        }
+    }
+    pipeline_detail::RowTable table =
+        pipeline_detail::materialize(head_text, wanted);
+    for (const PipelineStep& step : stmt.expr.steps) {
+        switch (step.op.kind) {
+            case PipelineOp::Kind::Filter:
+                pipeline_detail::apply_filter(table, *step.op.predicate,
+                                              "filter");
+                break;
+            case PipelineOp::Kind::Where:
+                pipeline_detail::apply_filter(table, *step.op.predicate,
+                                              "where");
+                break;
+            case PipelineOp::Kind::Having:
+                pipeline_detail::apply_filter(table, *step.op.predicate,
+                                              "having");
+                break;
+            case PipelineOp::Kind::Select:
+                pipeline_detail::apply_select(table, step.op.select_items);
+                break;
+            case PipelineOp::Kind::SortBy:
+                pipeline_detail::apply_sort(table, step.op.sort_fields,
+                                            step.op.sort_dir);
+                break;
+            case PipelineOp::Kind::Limit: {
+                if (step.op.limit < 0) {
+                    throw PredicateError("limit must be non-negative");
+                }
+                const std::size_t keep =
+                    static_cast<std::size_t>(step.op.limit);
+                if (table.rows.size() > keep) table.rows.resize(keep);
+                break;
+            }
+            case PipelineOp::Kind::GroupBy:
+                pipeline_detail::apply_group(table, step.op.group_fields);
+                break;
+            case PipelineOp::Kind::Emit:
+                if (!step.op.emit_is_string && !step.op.emit_target.empty()) {
+                    const std::string text =
+                        pipeline_detail::render(table);
+                    ctx.values.bindings[step.op.emit_target] = text;
+                    ctx.known_bindings[step.op.emit_target] = true;
+                }
+                break;
+            case PipelineOp::Kind::Write: {
+                const std::string text = pipeline_detail::render(table);
+                ctx.values.bindings["write:" + step.op.write_path] = text;
+                if (ctx.state.staged_writes != nullptr) {
+                    (*ctx.state.staged_writes)[step.op.write_path] = text;
+                }
+                break;
+            }
+            case PipelineOp::Kind::Correlate:
+                throw PredicateError(
+                    "correlate as a pipe operator is not executable "
+                    "(joins need two named tables; use let bindings)");
+        }
+    }
+    if (stmt.has_binding) {
+        ctx.values.bindings[stmt.binding] = pipeline_detail::render(table);
+    }
+}
+
 inline void execute_pipeline_stmt(const PipelineStmt& stmt,
                                   ExecContext& ctx) {
     // Walker order: head call first, then predicate-embedded calls.
@@ -236,6 +397,18 @@ inline void execute_pipeline_stmt(const PipelineStmt& stmt,
             ctx.int_scopes.back()[stmt.binding] =
                 stmt.expr.head->integer;
         }
+    }
+    // Stage execution: the head's captured stdout becomes a row table
+    // and each `| op` transforms it. Source heads read the evidence
+    // path straight from disk (read-only); call heads reuse the
+    // dispatch output recorded above; literal/list heads render as
+    // one-row tables. Correlate heads/operators abort — no join
+    // engine exists, and passing data through unexamined would lie.
+    try {
+        run_pipeline_stages(stmt, ctx);
+    } catch (const PredicateError& ex) {
+        throw ExecAbort(std::string("pipeline execution failed: ") +
+                        ex.what());
     }
 }
 

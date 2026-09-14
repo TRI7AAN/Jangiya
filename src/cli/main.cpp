@@ -35,6 +35,7 @@
 #include "jocky/fir/script_resolver.hpp"
 #include "jocky/lexer/lexer.hpp"
 #include "jocky/runtime/control_flow_executor.hpp"
+#include "jocky/runtime/verifier.hpp"
 #include "jocky/semantic/bound_checker.hpp"
 #include "jocky/parser/parser.hpp"
 #include "jocky/policy/capability_gate.hpp"
@@ -627,6 +628,104 @@ int run_shake(const std::string& path, const std::string& registry_dir) {
     return 0;
 }
 
+// `jocky verify <manifest.json>`: re-hash recorded artifacts and
+// re-check per-execution integrity entries. Reads only the manifest
+// and the artifacts it names; never executes scripts.
+int run_verify(const std::string& path) {
+    jocky::VerifyResult result = jocky::verify_manifest(path);
+    if (result.pass) {
+        std::cout << "VERIFY PASS " << path << "\n";
+        return 0;
+    }
+    std::cout << "VERIFY FAIL " << path << " (" << result.issues.size()
+              << " issue(s))\n";
+    for (const jocky::VerifyIssue& issue : result.issues) {
+        std::cout << "  " << issue.where << ": " << issue.message << "\n";
+    }
+    return 1;
+}
+
+// `jocky console <case-dir>`: offline multi-case console. A minimal
+// read-eval loop over the .jky files in a directory — list cases,
+// run check/resolve/gate/shake/execute/verify without leaving the
+// session. No sockets, no listeners, no network: every command reuses
+// the in-process run_* functions above against local files only.
+int run_execute(const std::string& path,
+                const std::vector<std::string>& raw_args);
+int run_console(const std::string& case_dir,
+                const std::string& registry_dir) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    if (!fs::is_directory(case_dir, ec) || ec) {
+        std::cerr << "error: case directory not found: '" << case_dir
+                  << "'\n";
+        return 1;
+    }
+    std::cout << "JOCKY offline console — case dir '" << case_dir
+              << "', registry '" << registry_dir << "'\n"
+                 "commands: cases | check <f> | resolve <f> | gate <f> | "
+                 "shake <f> | run <f> | verify <manifest> | quit\n";
+    auto resolve_local = [&](const std::string& name) {
+        fs::path path(name);
+        if (path.is_absolute() || name.find('/') != std::string::npos) {
+            return path.string();
+        }
+        return (fs::path(case_dir) / name).string();
+    };
+    std::string line;
+    while (true) {
+        std::cout << "jocky> " << std::flush;
+        if (!std::getline(std::cin, line)) {
+            std::cout << "\n";
+            return 0;
+        }
+        std::istringstream words(line);
+        std::string cmd;
+        words >> cmd;
+        if (cmd.empty()) continue;
+        if (cmd == "quit" || cmd == "exit") return 0;
+        if (cmd == "cases") {
+            for (const auto& entry : fs::directory_iterator(case_dir, ec)) {
+                if (ec) break;
+                if (entry.path().extension() == ".jky") {
+                    std::cout << "  " << entry.path().filename().string()
+                              << "\n";
+                }
+            }
+            if (ec) {
+                std::cerr << "error: cannot list '" << case_dir
+                          << "': " << ec.message() << "\n";
+            }
+            continue;
+        }
+        std::string arg;
+        words >> arg;
+        if ((cmd == "check" || cmd == "resolve" || cmd == "gate" ||
+             cmd == "shake" || cmd == "run" || cmd == "verify") &&
+            arg.empty()) {
+            std::cerr << "usage: " << cmd << " <file>\n";
+            continue;
+        }
+        if (cmd == "check") {
+            run_check(resolve_local(arg));
+        } else if (cmd == "resolve") {
+            run_resolve(resolve_local(arg), registry_dir);
+        } else if (cmd == "gate") {
+            run_gate(resolve_local(arg), registry_dir);
+        } else if (cmd == "shake") {
+            run_shake(resolve_local(arg), registry_dir);
+        } else if (cmd == "run") {
+            run_execute(resolve_local(arg), {});
+        } else if (cmd == "verify") {
+            run_verify(resolve_local(arg));
+        } else {
+            std::cerr << "unknown command '" << cmd
+                      << "' (try: cases, check, resolve, gate, shake, run, "
+                         "verify, quit)\n";
+        }
+    }
+}
+
 // Phase 8 interpreter: run a .jky program directly against the
 // filesystem registry — no compile step, no embedding, no shake step
 // (shaking decides what to EMBED; with nothing embedded it is
@@ -906,6 +1005,15 @@ int main(int argc, char** argv) {
             (argc == 5) ? argv[4] : "stat_scripts/";
         return run_shake(argv[2], registry);
     }
+    if (argc == 3 && std::string(argv[1]) == "verify") {
+        return run_verify(argv[2]);
+    }
+    if ((argc == 3 || (argc == 5 && std::string(argv[3]) == "--registry")) &&
+        std::string(argv[1]) == "console") {
+        const std::string registry =
+            (argc == 5) ? argv[4] : "stat_scripts/";
+        return run_console(argv[2], registry);
+    }
     // Bare `jocky <file.jky>` (Phase 8 interpreter). Any first argument
     // that is not a known subcommand is a program path; remaining
     // arguments are run flags parsed by run_execute. (A file literally
@@ -915,6 +1023,8 @@ int main(int argc, char** argv) {
         std::string(argv[1]) != "resolve" &&
         std::string(argv[1]) != "gate" &&
         std::string(argv[1]) != "shake" &&
+        std::string(argv[1]) != "verify" &&
+        std::string(argv[1]) != "console" &&
         std::string(argv[1]).rfind("-", 0) != 0) {
         std::vector<std::string> run_args;
         for (int i = 2; i < argc; ++i) {
@@ -926,6 +1036,8 @@ int main(int argc, char** argv) {
                  "       jocky resolve <file.jky> [--registry <dir>]\n"
                  "       jocky gate <file.jky> [--registry <dir>]\n"
                  "       jocky shake <file.jky> [--registry <dir>]\n"
+                 "       jocky verify <manifest.json>\n"
+                 "       jocky console <case-dir> [--registry <dir>]\n"
                  "       jocky <file.jky> [--registry <dir>]\n"
                  "             [--output-root <dir>] [--manifest <path>]\n"
                  "             [--max-executions <n>] [--max-iterations <n>]\n";

@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <poll.h>
 #include <set>
 #include <sstream>
@@ -500,6 +501,7 @@ inline void prepare_isolated_root(const fs::path& rootfs,
                                   const std::string& script_source) {
     fs::create_directories(rootfs / "bin");
     fs::create_directories(rootfs / "usr/bin");
+    fs::create_directories(rootfs / "dev");
     fs::create_directories(rootfs / "lib/x86_64-linux-gnu");
     fs::create_directories(rootfs / "lib64");
     fs::create_directories(rootfs / "inputs");
@@ -509,12 +511,60 @@ inline void prepare_isolated_root(const fs::path& rootfs,
 
     copy_runtime_file("/usr/bin/bash", rootfs / "bin/bash");
     copy_runtime_file("/usr/bin/sleep", rootfs / "usr/bin/sleep");
-    copy_runtime_file("/lib/x86_64-linux-gnu/libtinfo.so.6",
-                      rootfs / "lib/x86_64-linux-gnu/libtinfo.so.6");
-    copy_runtime_file("/lib/x86_64-linux-gnu/libc.so.6",
-                      rootfs / "lib/x86_64-linux-gnu/libc.so.6");
-    copy_runtime_file("/lib64/ld-linux-x86-64.so.2",
-                      rootfs / "lib64/ld-linux-x86-64.so.2");
+    // Read-only text-tool provisioning: registry scripts are written
+    // against grep/head/sed/awk/cat/sort and friends, but the sandbox
+    // PATH only ever contained bash+sleep — every coreutils call failed
+    // with 127. These host binaries are copied read-only into the same
+    // isolated root (no network, no extra capabilities); a tool absent
+    // on the host is skipped, never fatal, so minimal hosts still run.
+    static const char* text_tools[] = {
+        "/usr/bin/sed",    "/usr/bin/head",  "/usr/bin/awk",
+        "/usr/bin/grep",   "/usr/bin/cut",   "/usr/bin/sort",
+        "/usr/bin/tr",     "/usr/bin/wc",    "/usr/bin/od",
+        "/usr/bin/cat",    "/usr/bin/ls",    "/usr/bin/dirname",
+        "/usr/bin/basename", "/usr/bin/mktemp", "/usr/bin/stat",
+        "/usr/bin/date",   "/usr/bin/tee",   "/usr/bin/uniq",
+        "/usr/bin/comm",   "/usr/bin/join",  "/usr/bin/paste",
+        "/usr/bin/tail",   "/usr/bin/nl",    "/usr/bin/tac",
+        "/usr/bin/fold",   "/usr/bin/expand",
+    };
+    for (const char* tool : text_tools) {
+        std::error_code probe;
+        if (!fs::is_regular_file(tool, probe) || probe) continue;
+        try {
+            copy_runtime_file(tool,
+                              rootfs / "usr/bin" /
+                                  fs::path(tool).filename().string());
+        } catch (const std::exception&) {
+        }
+    }
+    static const char* text_libs[] = {
+        "/usr/lib/x86_64-linux-gnu/libacl.so.1",
+        "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "/usr/lib/x86_64-linux-gnu/libgmp.so.10",
+        "/usr/lib/x86_64-linux-gnu/libmpfr.so.6",
+        "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+        "/usr/lib/x86_64-linux-gnu/libreadline.so.8",
+        "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+        "/usr/lib/x86_64-linux-gnu/libtinfo.so.6",
+        "/lib64/ld-linux-x86-64.so.2",
+        "/lib/x86_64-linux-gnu/libtinfo.so.6",
+        "/lib/x86_64-linux-gnu/libc.so.6",
+        "/lib64/ld-linux-x86-64.so.2",
+    };
+    for (const char* lib : text_libs) {
+        std::error_code probe;
+        if (!fs::is_regular_file(lib, probe) || probe) continue;
+        try {
+            const fs::path source(lib);
+            fs::path target = rootfs / source.relative_path();
+            std::error_code ec;
+            if (fs::exists(target, ec)) continue;
+            copy_runtime_file(source, target);
+        } catch (const std::exception&) {
+        }
+    }
 
     std::ofstream script(rootfs / "script.sh",
                          std::ios::binary | std::ios::trunc);
@@ -526,6 +576,16 @@ inline void prepare_isolated_root(const fs::path& rootfs,
     script.close();
     fs::permissions(rootfs / "script.sh", fs::perms::owner_read,
                     fs::perm_options::replace);
+    // Scripts redirect noise to /dev/null, which does not exist in the
+    // chroot (mknod is unavailable). A plain empty file satisfies
+    // `>/dev/null` / `2>/dev/null` writes harmlessly; reads from it
+    // yield EOF, matching discard semantics closely enough for audit
+    // scripts. Best-effort: never fatal.
+    try {
+        std::ofstream null(rootfs / "dev" / "null",
+                           std::ios::binary | std::ios::trunc);
+    } catch (const std::exception&) {
+    }
 }
 
 inline void make_snapshot_read_only(const fs::path& path) {
@@ -760,6 +820,10 @@ struct DispatchState {
     bool* all_ok = nullptr;
     std::size_t* execution_count = nullptr;
     std::set<std::string>* output_candidates = nullptr;
+    // Pipeline `write` targets computed by the tree executor
+    // (path -> rendered table text). Planted as real files under the
+    // output root after tree execution, before output hashing.
+    std::map<std::string, std::string>* staged_writes = nullptr;
 };
 
 // Stamp a terminal outcome: wall-clock end + stdout hash (Phase 7.5).
@@ -1014,6 +1078,7 @@ inline DispatchResult run_runtime_plan(const RuntimePlan& plan,
     std::size_t execution_count = 0;
     std::set<std::string> output_candidates(plan.declared_outputs.begin(),
                                             plan.declared_outputs.end());
+    std::map<std::string, std::string> staged_writes;
     DispatchState state;
     state.plan = &plan;
     state.options = &options;
@@ -1024,6 +1089,7 @@ inline DispatchResult run_runtime_plan(const RuntimePlan& plan,
     state.all_ok = &all_ok;
     state.execution_count = &execution_count;
     state.output_candidates = &output_candidates;
+    state.staged_writes = &staged_writes;
     if (!plan.program_source.empty()) {
         // Phase 7.5 tree mode: walk the real statement tree (branch
         // selection, real loops, while ceiling). An empty source keeps
@@ -1032,6 +1098,36 @@ inline DispatchResult run_runtime_plan(const RuntimePlan& plan,
     } else {
         for (const RuntimeCall& call : plan.calls) {
             dispatch_single_call(call, state);
+        }
+    }
+
+    for (const auto& [path, text] : staged_writes) {
+        try {
+            const fs::path dest = canonical_path(path, working);
+            if (!path_is_within(dest, output_root)) {
+                throw std::runtime_error(
+                    "pipeline write escapes output root: '" +
+                    dest.string() + "'");
+            }
+            std::error_code ec;
+            fs::create_directories(dest.parent_path(), ec);
+            if (ec) {
+                throw std::runtime_error("cannot stage pipeline write '" +
+                                         dest.string() +
+                                         "': " + ec.message());
+            }
+            std::ofstream out(dest, std::ios::binary | std::ios::trunc);
+            if (!out) {
+                throw std::runtime_error(
+                    "cannot stage pipeline write '" + dest.string() + "'");
+            }
+            out.write(text.data(),
+                      static_cast<std::streamsize>(text.size()));
+            out.close();
+            output_candidates.insert(dest.string());
+        } catch (const std::exception& ex) {
+            manifest.errors.push_back(ex.what());
+            all_ok = false;
         }
     }
 
