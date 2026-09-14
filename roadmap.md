@@ -1,6 +1,8 @@
 # JOCKY Roadmap — Full Phase Plan
 
-> **TRACK A CLOSED 2026-09-14.** Phases 0–11 complete; final audit
+> **TRACK A CLOSED 2026-09-14** in commit `f1b119f` ("JOCKY Phase 11:
+> final SIH26148 coverage audit, verify-doc corrections, Track A
+> close-out"). Phases 0–11 complete; final audit
 > `wiki/25-final-ps-coverage.md`, signed off in `logs.md`. Remaining
 > Track A work, if any, is corrective and driven by the `wiki/25` §6
 > backlog — not by new roadmap phases. Track B (Phases 12–16) is the
